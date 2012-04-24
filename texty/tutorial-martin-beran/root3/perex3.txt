@@ -1,0 +1,4 @@
+V dne¹ním dílu si uká¾eme hierarchické uspoøádání widgetù. Dále probereme
+základní manipulaci s widgety - vytvoøení, zobrazení, zru¹ení. S tím souvisí i
+správa pamìti pomocí poèítání referencí. Nakonec se podíváme na kontejnerové
+widgety, pøedev¹ím na boxy a tabulky.

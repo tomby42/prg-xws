@@ -1,0 +1,1 @@
+V tomto adresary jsou ulohy pro reseni. Reseni prosim dejte do podaresare reseni/vase-jmeno.

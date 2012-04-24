@@ -1,0 +1,4 @@
+V pátém díle seriálu se podíváme na funkce knihovny GLib. V dal¹í èásti èlánku
+se budeme zabývat podporou GTK+ pro periodicky volané funkce, vstupy/výstupy a
+konfiguraci grafických stylù widgetù. Nakonec probereme mo¾nosti komunikace
+mezi programy pomocí výbìrù a drag&drop.

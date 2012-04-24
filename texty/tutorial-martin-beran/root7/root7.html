@@ -1,0 +1,243 @@
+<HTML>
+<HEAD>
+<META http-equiv="Content-Type" content="text/html; charset=ISO-8859-2">
+</HEAD>
+
+<BODY>
+<H1>Programování pro X Window System (7)</H1>
+
+<B>Martin Beran</B>
+<EM>&lt;<A href="mailto:beran@ms.mff.cuni.cz">beran@ms.mff.cuni.cz</A>&gt;</EM>
+
+<H2>Qt</H2>
+
+<P>V předchozích článcích jsme probrali toolkit GTK+. Nyní se budeme věnovat
+druhému slíbenému toolkitu &ndash; Qt. Nebudeme se pouštět do takových
+podrobností, jako u&nbsp;GTK+, protože Qt v&nbsp;mnoha ohledech funguje
+obdobně jako GTK+ a navíc je velmi dobře dokumentované. Není problém naučit se
+používat Qt pro psaní aplikací s&nbsp;pomocí dokumentace dodávané
+s&nbsp;toolkitem, která obsahuje tutoriály, vysvětlení principů, na nichž je
+toolkit postaven, referenční příručku a návody k&nbsp;použití doplňkových
+nástrojů (Qt Designer, qmake, apod.). Dokumentace je ve formátu HTML a lze ji
+prohlížet buď v&nbsp;libovolném webovém browseru, nebo pomocí aplikace Qt
+Assistant, která je součástí toolkitu.
+
+<P>Toolkit Qt je multiplatformní, dostupný pro Unix (X11), Mac OS X, embedded
+Linux, a MS Windows. Ještě více než GTK+ skrývá detaily okenního systému, nad
+nímž běží. Qt je objektově orientované a napsané v&nbsp;C++ rozšířeném o&nbsp;mechanismy
+definice signálů a slotů, dynamické identifikace typů a properties. Rozšíření
+jsou implementována pomocí maker a preprocesoru <TT>moc</TT> (Meta Object
+Compiler). Existují i rozhraní pro použití Qt z&nbsp;jiných jazyků: Perlu (PerlQt)
+a Pythonu (PyQt). Při přípravě tohoto článku jsem vycházel z&nbsp;verze toolkitu
+3.1. Aktuální verze je 3.3.2, nicméně k&nbsp;rozdílům mezi těmito verzemi se ani
+nedostaneme. Pokud chceme Qt aplikaci doplnit o&nbsp;skriptování, je možné použít
+nástroj <EM>QSA (Qt Script for Applications)</EM>, založený na jazyce
+ECMAScript.
+
+<P>Toolkit Qt je dostupný volitelně pod komerční licencí pro vývoj
+closed-source softwaru nebo pod GPL, popř. QPL (Qt Public License) pro vývoj
+free softwaru. Podobně duální licencování má i QSA.
+
+<H2>Hello World</H2>
+
+<P>Seznamování s&nbsp;toolkitem Qt začneme triviálním programem, který zobrazí
+okno s&nbsp;tlačítkem. Po zavření okna program skončí. Tlačítko lze stisknout,
+ale nic nedělá. Celý zdrojový kód
+programu je v&nbsp;souboru <A href="qthello.cpp">qthello.cpp</A>.
+
+<P>Hlavičkové soubory Qt jsou rozdělené podle jednotlivých tříd. Někdy je
+skupina funkčně svázaných tříd definovaná v&nbsp;jednom souboru, ale obvykle má
+každá třída samostatný hlavičkový soubor. V&nbsp;našem prvním programu budeme
+používat třídy <TT>QApplication</TT> a <TT>QPushButton</TT>. 
+<PRE>
+#include &lt;qapplication.h&gt;
+#include &lt;qpushbutton.h&gt;
+</PRE>
+
+<P>Každý program má právě jednu instanci třídy <TT>QApplication</TT>. Ta
+implementuje cyklus zpracování událostí, inicializaci, závěrečný úklid a
+zpracování globálních nastavení platných pro celou aplikaci. Konstruktor
+dostává argumenty funkce <TT>main</TT> a odebere z&nbsp;nich argumenty určené pro
+Qt, např. <TT>-style</TT>, <TT>-display</TT> nebo <TT>-name</TT>. Kompletní
+seznam je uveden v&nbsp;dokumentaci třídy <TT>QApplication</TT>.
+<PRE>
+QApplication app(argc, argv);
+</PRE>
+
+<P>Po inicializaci aplikačního objektu můžeme vytvářet widgety. Náš jednoduchý
+program bude mít jediný widget &ndash; tlačítko.
+<PRE>
+QPushButton hello("Hello world!", 0);
+</PRE>
+Konstruktor má tři parametry: nápis na tlačítku, rodičovský widget a jméno
+widgetu. Zde je tlačítko top-level widget, proto nemá rodiče. Jméno widgetu se
+nezobrazuje, je to interní pojmenování. Příliš se nepoužívá, proto má tento
+parametr implicitní hodnotu 0. Dá se použít pro nalezení objektu
+podle jména (metody <TT>QObject::child</TT> a <TT>QObject::queryList</TT>) a
+pro ladění (metoda <TT>QObject::dumpObjectTree</TT>). V&nbsp;GTK+ je pro top-level
+okna vyhrazena speciální třída <TT>GtkWindow</TT>. V&nbsp;Qt může být libovolný
+widget top-level. Tlačítko nastavíme jako hlavní widget aplikace. Tím
+zajistíme, že při zavření okna s&nbsp;tlačítkem program skončí.
+<PRE>
+app.setMainWidget(&amp;hello);
+</PRE>
+Každý widget je potřeba zobrazit, jinak by sice existoval jako objekt
+v&nbsp;paměti, ale nebyl by vidět. Při zobrazení widgetu se zobrazí i všichni jeho
+potomci.
+<PRE>
+hello.show();
+</PRE>
+
+<P>Po vytvoření a zobrazení widgetů a dokončení ostatních inicializačních akcí
+je čas nastartovat zpracování událostí.
+<PRE>
+return app.exec();
+</PRE>
+Zpracování událostí skončí zavřením hlavního widgetu nebo voláním
+<TT>QApplication::quit()</TT> či <TT>QApplication::exit</TT>. Metoda
+<TT>QApplication::exec</TT> pak vrátí návratový kód použitelný jako návratový
+kód programu.
+
+<H2>Vytvoření spustitelného programu</H2>
+
+<P>Qt obsahuje utilitu <TT>qmake</TT>, která umí automaticky vygenerovat
+kompletní <TT>Makefile</TT>. Její použití je pohodlnější, než psát
+<TT>Makefile</TT> ručně. Další možnost představují programy <TT>autoconf</TT>
+a <TT>automake</TT>, které používá např. projekt KDE. Před spuštěním
+<TT>qmake</TT> je nutné nastavit environmentové proměnné <TT>QTDIR</TT>
+(adresář, kde je instalované Qt, např. <TT>/usr/X11R6</TT>) a
+<TT>QMAKESPEC</TT> (kombinace platformy a kompilátoru, např.
+<TT>freebsd-g++</TT>). Následující postup se skládá z&nbsp;pěti kroků:
+<OL>
+<LI>Vytvoříme adresář pojmenovaný stejně, jako se bude jmenovat program.
+V&nbsp;našem případě to bude <TT>qthello</TT>. Do adresáře uložíme veškeré zdrojové
+soubory programy. My máme pouze soubor <TT>qthello.cpp</TT>.
+<LI>Přepneme se do adresáře (<TT>cd&nbsp;qthello</TT>) a příkazem
+<TT>qmake&nbsp;-project</TT> vygenerujeme projektový soubor. V&nbsp;něm jsou
+informace, jež <TT>qmake</TT> používá při generování <TT>Makefile</TT>.
+<LI>Projektový soubor můžeme upravit textovým editorem. V&nbsp;dokumentaci Qt je
+podrobně popsáno, co všechno můžeme do tohoto souboru napsat.
+<LI>Vygenerujeme <TT>Makefile</TT> příkazem <TT>qmake</TT>.
+<LI>Spustíme <TT>make</TT>.
+</OL>
+
+<H2>Signály, sloty a události</H2>
+
+<P><EM>Signály</EM> a <EM>události</EM> už známe z&nbsp;GTK+. <EM>Slot</EM> je jen
+jiný název pro handler signálu. V&nbsp;GTK+ se události překládají na signály a dál
+se zpracovávají pomocí handlerů signálů. Qt používá signály a události jako
+dva oddělené mechanismy pro komunikaci mezi objekty v&nbsp;programu, resp. mezi
+programem a okolím.
+
+<P>Každá třída odvozená z&nbsp;<TT>QObject</TT> má definované množiny signálů a
+slotů. Signály i sloty jsou speciální metody. Mohou mít parametry, ale vždy
+mají návratový typ <TT>void</TT>. Objekt vygeneruje signál pomocí
+<PRE>
+emit <EM>signál(argumenty);</EM>
+</PRE>
+když se s&nbsp;ním stane něco, co by mohlo zajímat i jiné objekty &ndash; např.
+uživatel vybere položku z&nbsp;menu. Qt následně zavolá všechny sloty, které
+jsou k&nbsp;signálu připojeny. Náš triviální program <TT>qthello</TT> můžeme
+upravit, aby po stisku tlačítka skončil, připojením slotu
+<TT>QApplication::quit</TT> k&nbsp;signálu <TT>QPushButton::clicked</TT>.
+<PRE>
+QObject::connect(&amp;hello, SIGNAL(clicked()), &amp;app, SLOT(quit()));
+</PRE>
+Stejně jako v&nbsp;GTK+ fungují signály a sloty synchronně, tj. sloty se volají
+okamžitě po emitování signálu a <TT>emit</TT> se vrátí, teprve až skončí
+poslední slot. Výhoda oproti GTK+ je v&nbsp;tom, že při napojování Qt kontroluje,
+zda signál a slot mají shodný počet a typy parametrů. Připojený slot lze od
+signálu opět odpojit pomocí metody <TT>QObject::disconnect</TT>.
+
+<P>Události jsou generované okenním systémem (např. <TT>QMouseEvent</TT>),
+časovačem (<TT>QTimerEvent</TT>) nebo aktivitou na soketu (interní události
+použité v&nbsp;implementaci <TT>QSocketNotifier</TT>). Události si mohou posílat
+mezi sebou i objekty v&nbsp;rámci programu. Pro tento účel je vyhrazen typ
+<TT>QCustomEvent</TT>, ale lze použít i libovolný jiný typ. Když objekt
+dostane událost, volá se nejprve metoda <TT>event</TT>. Ta předá událost
+k&nbsp;dalšímu zpracování specifické metodě podle typu události, např.
+<TT>paintEvent</TT> pro událost <TT>QPaintEvent</TT>. Když widget odmítne
+voláním metody <TT>ignore</TT> událost pocházející z&nbsp;klávesnice nebo z&nbsp;myši
+(<TT>QKeyEvent</TT>, <TT>QMouseEvent</TT>), bude se událost propagovat do
+rodičovského widgetu. Objekt se může pomocí
+<TT>QObject::installEventFilter</TT> zaregistrovat jako filtr (<EM>event
+filter</EM>) pro nějaký jiný objekt. Filtr dostává všechny události
+určené pro druhý objekt dřív než on. Jestliže potřebujeme odchytávat úplně
+všechny události v&nbsp;programu, lze toho dosáhnout instalací filtru na aplikační
+objekt <TT>QApplication</TT>. Filtry událostí používá v&nbsp;Qt např. třída
+<TT>QAccel</TT>, která odchytává kombinace kláves definované jako
+akcelerátory. Události se zpracovávají asynchronně. Každá událost je uložena
+do fronty, odkud ji někdy později vybere cyklus zpracování událostí
+<TT>QApplication::exec</TT>. Do fronty se dá přidat libovolná událost voláním
+<TT>QApplication::postEvent</TT>. Při použití pro komunikaci uvnitř programu
+lze s&nbsp;událostmi pracovat i synchronně. Metoda <TT>QApplication::sendEvent</TT>
+volá přímo handler události v&nbsp;cílovém widgetu.
+
+<H2>Správa paměti</H2>
+
+<P>Qt používá velmi jednoduchý, nicméně dobře fungující model správy paměti.
+Objekty tříd odvozených z&nbsp;<TT>QObject</TT> jsou organizovány do stromových
+struktur. Při vytvoření nového objektu se zadává jeho rodič jako parametr
+konstruktoru. Když je 0, vytvoří se kořen nového stromu. Při zrušení objektu
+se Qt postará o&nbsp;automatické zrušení všech jeho potomků ve stromě objektů. Ve
+třídě <TT>QObject</TT> jsou definovány metody pro manipulaci se stromy
+objektů. Metoda <TT>objectTrees</TT> vrací seznam kořenů všech existujících
+stromů. Rodičovský a synovské objekty se dají zjistit voláním metod
+<TT>parent</TT> a <TT>children</TT>. Ke změně stromu slouží metody
+<TT>insertChild</TT> a <TT>removeChild</TT>.
+
+<P>Widgety, tj. objekty odvozené z&nbsp;třídy <TT>QWidget</TT> navíc vytvářejí
+stromy widgetů. Ty určují, jak budou jednotlivé widgety do sebe vnořeny na
+obrazovce. Kořeny stromů widgetů jsou top-level okna. Obvykle strom widgetů
+koresponduje se stromem objektů, takže při zrušení widgetu se automaticky
+zruší všechny widgety, které jsou v&nbsp;něm vizuálně obsaženy. Při vytvoření
+objektu se rodič zadaný jako parametr konstruktoru použije pro zapojení jak do
+stromu objektů, tak i do stromu widgetů. Změny ve stromě widgetů je možné
+provádět metodou <TT>QWidget::reparent</TT>. Je třeba dávat si pozor na to, že
+přesun widgetu v&nbsp;rámci stromů objektů nemění pozici widgetu ve stromě widgetů.
+Pokud má být zachována korespondence obou struktur, je nutné spolu
+s&nbsp;<TT>QObject::insertChild</TT> nebo <TT>QObject::removeChild</TT> volat také
+<TT>QWidget::reparent</TT>.
+
+<P>Při zrušení objektu mohou na různých místech programu zbýt ukazatele na již
+neexistující objekt. Jejich dereferencování typicky způsobí havárii programu.
+Qt proto definuje šablonu <TT>QGuardedPtr</TT>, což je ukazatel, který se
+automaticky nastaví na 0 při zrušení objektu, na nějž ukazuje.
+
+<P>Programátoři používající jazyk C znají dobře problémy s&nbsp;rozhodováním, kdo
+je vlastníkem nějaké datové struktury a měl by se postarat o&nbsp;její dealokaci.
+Např. při předávání řetězce &ndash; parametru typu <TT>char&nbsp;*</TT>
+&ndash; do funkce musíme vědět, zda si funkce udělá kopii řetězce nebo ne.
+A&nbsp;když ne, zda funkce řetězec dealokuje nebo zda ho má dealokovat volající. 
+V&nbsp;grafické aplikaci je mnoho datových struktur s&nbsp;podobnými problémy: obrázky,
+fonty, kurzory, apod. GTK+ řeší problém s&nbsp;tím, kdo a kdy má objekt zrušit,
+pomocí počítání referencí. Tím ale není vyřešen jiný problém &ndash; často
+bychom chtěli předávat parametry funkcí hodnotou, aby následně funkce i
+volající mohly datovou strukturu měnit a změny provedené uvnitř funkce se
+neprojevily vně a naopak. Jenže datové struktury jako jsou pixmapy mohou být
+hodně velké a jejich kopírování je drahá operace. Pokud funkce ani volající
+nebudou následně hodnotu měnit, bylo kopírování zbytečné. Když se naopak
+parametr předává odkazem (resp. pomocí ukazatele), nekopíruje se datová
+struktura při volání funkce, ale musíme mít na paměti, že když ji chceme
+změnit, musíme si nejdřív udělat kopii.
+
+<P>Qt odstraňuje oba problémy pomocí datových struktur s&nbsp;implicitně
+sdílenými daty. Objekty <TT>QString</TT>, <TT>QBitmap</TT>, <TT>QPixmap</TT>,
+<TT>QCursor</TT>, apod. jsou ve skutečnosti velmi malé struktury, které
+obsahují ukazatel na data uložená v&nbsp;samostatně alokovaném bloku paměti.
+Používá se zde počítání referencí a copy-on-write. U&nbsp;dat je poznamenáno,
+kolik objektů je používá. Když tento počet klesne na 0, paměť s&nbsp;daty je
+uvolněna. Jestliže je počet odkazů větší než jedna a některý objekt chce data
+změnit, nejprve si automaticky vytvoří privátní kopii a dat změna se provede
+v&nbsp;kopii. V&nbsp;Qt je tedy možné předávat např. řetězce (typu
+<TT>QString</TT>) hodnotou bez obav, že bude program zpomalen zbytečným
+kopírováním.
+
+<P>V instancích šablony <TT>QMemArray</TT> a ve třídách <TT>QImage</TT> a
+<TT>QMovie</TT> se používá explicitní sdílení dat. To znamená, že kopie
+objektu bude s&nbsp;původním objektem sdílet data, ale nefunguje copy-on-write.
+Změnu provedenou prostřednictvím jednoho objektu uvidí všechny objekty
+používající stejná data. Objekt se může odpojit od sdílené kopie a vytvořit
+si privátní kopii dat voláním metody <TT>detach</TT> nebo <TT>copy</TT>.
+</BODY>
+</HTML>

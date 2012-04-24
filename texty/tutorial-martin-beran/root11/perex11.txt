@@ -1,0 +1,5 @@
+Tento èlánek je vìnován kreslení pomocí prostøedkù Xlib. První èást je
+vìnována práci s barvami a barevnými paletami. Následuje popis grafických
+primitiv a parametrù, jimi¾ je mo¾né ovlivnit vzhled grafiky. Tyto parametry
+jsou ulo¾eny v grafickém kontextu. Závìr èlánku patøí fontùm a mo¾nostem
+kreslení textù.

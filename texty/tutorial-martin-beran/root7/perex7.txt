@@ -1,0 +1,4 @@
+V pøedchozích èláncích jsme probrali toolkit GTK+. Nyní se budeme vìnovat
+druhému slíbenému toolkitu - Qt. Nebudeme se pou¹tìt do takových podrobností,
+jako u GTK+, proto¾e Qt v mnoha ohledech funguje obdobnì jako GTK+ a navíc je
+velmi dobøe dokumentované.

@@ -1,0 +1,1 @@
+Podadresare tohoto adresare obsahuji priklady.

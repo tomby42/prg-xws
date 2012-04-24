@@ -1,0 +1,311 @@
+<HTML>
+<HEAD>
+<META http-equiv="Content-Type" content="text/html; charset=ISO-8859-2">
+</HEAD>
+
+<BODY>
+<H1>Programování pro X Window System</H1>
+
+<B>Martin Beran</B>
+<EM>&lt;<A href="mailto:beran@ms.mff.cuni.cz">beran@ms.mff.cuni.cz</A>&gt;</EM>
+
+<P>X Window System (zkráceně X) je standardní technologie používaná
+v&nbsp;unixových systémech pro tvorbu grafického uživatelského rozhraní (GUI &ndash;
+graphical user interface). Uživatelům
+Linuxu je dobře známá implementace XFree86. V&nbsp;tomto seriálu článků se budeme
+zabývat programováním aplikací pro X, proto předpokládám, že čtenář má
+uživatelské znalosti prostředí X a zná programovací jazyky C a C++. Probíraná
+tématika vychází z&nbsp;mých stejnojmenných přednášek na MFF UK. Na webových
+stránkách k&nbsp;přednášce
+<A href="http://www.ms.mff.cuni.cz/~beran/vyuka/X/">http://www.ms.mff.cuni.cz/~beran/vyuka/X/</A>
+lze najít další doplňující informace a sbírku krátkých ukázkových programů.
+
+<P>Tento úvodní článek obsahuje seznámení s&nbsp;architekturou X a připomenutí
+obecných principů používaných při programování grafických rozhraní. Dalších
+několik dílů seriálu bude věnováno úvodu do toolkitu GTK+
+(<A href="http://www.gtk.org/">http://www.gtk.org/</A>). Pak navážeme
+popisem konkurenčního toolkitu Qt 
+(<A href="http://www.trolltech.com/products/qt/index.html">http://www.trolltech.com/products/qt/index.html</A>). Závěr
+bude patřit low-level knihovně Xlib. Možná by byl logičtější obrácený postup
+od Xlib k&nbsp;toolkitům, nicméně takto se čtenář dříve dozví informace potřebné
+pro praktické programování aplikací pomocí toolkitů. Xlib je zajímavá z&nbsp;důvodu
+pochopení, jak X Window System funguje uvnitř, nicméně používat přímo tuto
+knihovnu není moc obvyklé. Až si ukážeme třistařádkový program
+&bdquo;hello-world&ldquo;, uvidíme proč.
+
+<P>X Window System se začal vyvíjet jako součást projektu Athena v&nbsp;Laboratory
+for Computer Science na MIT v&nbsp;roce 1983. Dalším známým produktem projektu
+Athena je autentizační systém Kerberos. V&nbsp;rychlém sledu následovaly verze X1
+(1984) až X11 (1987). Verze X10 Release 4 se stala základem pro první komerční
+implementace dodávané výrobci unixových pracovních stanic. Zatím poslední
+verze je X11 Release 6.6 z&nbsp;roku 2001. Referenční implementaci X spravuje The
+Open Group &ndash; konsorcium pro otevřené systémy, které spravuje např. i
+standard pro OS Unix.
+
+<H2>Architektura X</H2>
+
+<P>Architektura X Window System je založena na modelu klient-server. X server,
+v&nbsp;terminologii X display, je počítač, ke kterému je připojena grafická
+obrazovka, klávesnice a myš. Dnes obvykle X server běží na PC, dříve se
+používaly spíše unixové pracovní stanice nebo specializované X terminály, tj.
+jednoúčelové počítače na nichž je instalován pouze X server. Aplikace se
+spouští na jiných počítačích a X terminál s&nbsp;nimi komunikuje po síti. X klient
+je program, který používá služby X serveru: zobrazování grafiky a zpracování
+vstupu od uživatele. Server a klient spolu komunikují pomocí socketů, mohou
+tedy každý běžet na jiném počítači v&nbsp;síti. Systém X Window je distribuovaný,
+uživatel může mít na jedné obrazovce okna programů běžících na různých
+počítačích a naopak aplikace z&nbsp;jednoho počítače mohou komunikovat s&nbsp;uživateli
+prostřednictvím mnoha X serverů. Další důležitou vlastností je otevřenost. X
+se skládá z&nbsp;mnoha částí komunikujících mezi sebou přes standardizovaná
+rozhraní. Proto mohou bez problémů spolupracovat implementace X od různých
+výrobců. Některé části skládačky (například toolkit nebo window manager) je
+možné vyměňovat a tím přizpůsobit vzhled a chování systému potřebám a
+zvyklostem konkrétního uživatele.
+
+<P>Klient a server si povídají X protokolem. Komunikace probíhá přes síťové
+(typicky TCP) sockety. Jestliže klient i server běží na stejném počítači,
+používají se lokální sockety (AF_UNIX) a pro přenosy objemnějších dat i
+sdílená paměť. Verzi protokolu vyjadřuje číslo za písmenem X v&nbsp;názvu verze.
+Protokol již dlouho zůstává neměnný &ndash; od verze X11 Release 1 v&nbsp;roce
+1987. Samozřejmě bylo od té doby potřeba do X přidat nové funkce a u&nbsp;jiných
+změnit jejich chování. Takové úpravy se provádějí pomocí rozšíření
+(extensions), která definují nová volání Xlib a nové typy zpráv X protokolu.
+Pro rozšíření existuje definovaný systém registrace. Klient a server se
+v&nbsp;rámci standardního X protokolu domluví, která rozšíření podporují.
+
+<DIV align="center">
+<P><IMG alt="Architektura X" src="xwin.png">
+<P>Obr. 1: Architektura X
+</DIV>
+
+<P>Obrázek 1 zachycuje vztahy mezi hlavními částmi celého systému X. Na jedné
+straně sítě je X server, jehož architekturou se zde nebudeme dále zabývat.
+Naším cílem je programování v&nbsp;X, proto nás více zajímá, jak vypadá klient.
+Teoreticky by aplikace (klient) mohla sama otevřít síťový socket a X
+protokolem komunikovat se serverem. To ale nikdo nedělá. Místo toho se používá
+knihovna Xlib, která poskytuje rozhraní ve formě funkcí v&nbsp;jazyce C a interně
+zajišťuje komunikaci se serverem pomocí X protokolu. Xlib umožňuje provádět
+jen poměrně primitivní operace: vytvoření okna, kreslení grafiky do okna a
+příjem událostí, vzniklých např. na základě akcí uživatele.
+
+<P>Pokud se přímo používají volání Xlib, musí se aplikace starat o&nbsp;spoustu
+technických detailů. Nelze např. v&nbsp;kódu napsat něco jako: &bdquo;Vytvoř menu
+s&nbsp;těmito položkami, a když uživatel vybere položku, generuj událost
+s&nbsp;identifikátorem položky.&ldquo; Místo toho je třeba nakreslit rámeček menu, do
+něj napsat jednotlivé položky, detekovat kliknutí myši (pomocí zpracování
+události), překreslit vybranou položku zvýrazněným stylem a teprve pak je
+možné provést akci iniciovanou výběrem položky. Proto kód aplikace obvykle
+nevolá Xlib, ale používá toolkit &ndash; knihovnu, která poskytuje jednotlivé
+prvky uživatelského rozhraní (menu, tlačítka, řádky pro vkládání textu,
+apod.). Toolkit navenek poskytuje funkce na úrovni abstrakce odpovídající
+našemu příkladu s&nbsp;menu. Programátor se už nemusí starat o&nbsp;detaily vykreslování
+a zpracování uživatelského vstupu a může se zaměřit na logiku aplikace. Uvnitř
+toolkit v&nbsp;implementaci svých funkcí používá Xlib.
+
+<P>V prostředí X je žádoucí provozovat i shell a další unixové programy, které
+fungují v&nbsp;textovém režimu. K&nbsp;tomu se používají emulátory terminálů (např.
+xterm), fungující na jednu stranu jako X-ový program. Na druhé straně emulátor
+používá pseudoterminál a k&nbsp;němu připojí program běžící v&nbsp;textovém režimu.
+
+<P>Posledním dílkem mozaiky je window manager. Ten spravuje hlavní (top-level)
+okna aplikací. Obvykle kolem každého top-level okna zobrazí rámeček a umožňuje
+uživateli pomocí myši přesouvat okna, měnit jejich velikost a zavírat je.
+Window manager také poskytuje menu pro spouštění aplikací nebo je zapojen do
+integrovaného desktopu (GNOME, KDE). Rozdělení na low-level podporu pro tvorbu
+GUI (Xlib), vlastní definici prvků GUI (toolkit) a správu oken (window
+manager) může sice mírně snižovat efektivitu, ale na druhou stranu poskytuje
+velkou flexibilitu. Teoreticky může každá aplikace na obrazovce používat jiný
+toolkit. V&nbsp;rámci jednoho X serveru smí sice běžet jen jeden window manager,
+ale uživatel si může zvolit takový, jaký mu vyhovuje.
+
+<H2>Spuštění prostředí X</H2>
+
+<P>Než může uživatel začít pracovat v&nbsp;prostředí X Window System, je třeba
+nastartovat X server, window manager a případně počáteční sadu klientů, např.
+emulátor terminálu nebo skupinu aplikací tvořící desktopové pracovní prostředí. 
+Existují tři varianty, jak server a klienty spustit.
+
+<P>První možnost je samostatné ruční spuštění serveru ze shellu příkazem
+<PRE>
+$ X
+</PRE>
+a následně klientů. Na jednom počítači je možné spustit několik serverů. Každý
+z nich běží na samostatné virtuální konzoli. Klienti se po startu spojí s X
+serverem specifikovaným v environmentové proměnné <TT>DISPLAY</TT> ve tvaru
+<TT>[host]:display[.screen]</TT>. Část před dvojtečkou je jméno počítače s X
+serverem (klienti se připojují přes TCP socket). Když jméno chybí, znamená to
+lokální X server (klienti se připojují přes unixový socket). Za dvojtečkou je
+číslo displeje, tj. X serveru. První X server má číslo 0, při spuštění dalších
+je nutné číslo zadat:
+<PRE>
+$ X :1
+</PRE>
+Pokud X server používá několik monitorů, následuje za číslem displeje tečka a
+číslo obrazovky, na které se mají objevit okna klienta.
+
+<P>Další variantou nastartování prostředí X je příkaz
+<PRE>
+$ startx [ [ client ] options ... ] [ -- [ server ] options ... ]
+</PRE>
+Program <TT>startx</TT> je skript. Administrátor ho může upravit podle
+lokálních požadavků. Standardně vezme inicializační skript pro nastartování
+klientů (uživatelský <TT>$HOME/.xinitrc</TT> nebo systémový
+<TT>/usr/X11R6/lib/X11/xinit/xinitrc</TT>) a serveru (uživatelský
+<TT>$HOME/.xserverrc</TT> nebo systémový
+<TT>/usr/X11R6/lib/X11/xinit/xserverrc</TT>). Jména skriptů předá programu
+<TT>xinit</TT>, který nastartuje server a následně klienty. Po skončení
+posledního klienta <TT>xinit</TT> ukončí server a skončí. Činnost
+<TT>startx</TT> je schematicky znázorněna na obr. 2.
+
+<DIV align="center">
+<P><IMG alt="startx" src="startx.png">
+<P>Obr. 2: Spuštění prostředí X pomocí <TT>startx</TT>
+</DIV>
+
+<P>Poslední způsob inicializace prostředí X poskytuje uživatelům grafický
+login do systému. Ze systémových inicializačních skriptů je spuštěn display
+manager &ndash; program <TT>xdm</TT> &ndash; s&nbsp;rootovskými právy. Display
+manager nastartuje X server, inicializuje ho pomocí <TT>Xsetup</TT> a spustí
+klienta <TT>xlogin</TT>. Ten přečte jméno a heslo, ověří je a spustí
+<TT>Xstartup</TT>. Následně změní uživatelskou identitu na nově nalogovaného
+uživatele. Skript <TT>Xsession</TT> pak nastartuje klienty. Po skončení
+posledního klienta končí <TT>Xsession</TT>, display manager provede úklid
+pomocí <TT>Xreset</TT> (již opět s&nbsp;rootovskými právy), resetuje nebo
+restartuje X server a celý cyklus se opakuje. Fungování <TT>xdm</TT> je
+zobrazeno na obr. 3.
+
+<DIV align="center">
+<P><IMG alt="xdm" src="xdm.png">
+<P>Obr. 3: Grafický login do prostředí X pomocí <TT>xdm</TT>
+</DIV>
+
+<P>Klient má na serveru neomezená práva. Může manipulovat i s&nbsp;okny jiných
+klientů a přijímat z&nbsp;nich události. Proto je potřeba nežádoucí
+klienty zablokovat. V&nbsp;X existují dvě metody řízení přístupu: xhost a xauth.
+Příkaz <TT>xhost</TT> nastavuje v&nbsp;serveru seznam adres počítačů, ze kterých se
+mohou připojovat klienti. Problém této metody je, že z&nbsp;povoleného stroje mohou
+server používat všechny klientské programy, i když patří jinému uživateli,
+než který spustil X server. Řízení přístupu pomocí
+metody xhost se používá, jestliže není zapnuta metoda xauth. Na počátku jsou
+povoleny jen lokální klientské aplikace. Kompletně vypnout kontrolu přístupu
+lze příkazem
+<PRE>
+$ xhost +
+</PRE>
+nebo nastartováním serveru pomocí
+<PRE>
+$ X -ac
+</PRE>
+Metoda xauth funguje tak, že server povolí připojení klienta, jestliže se
+klient autentizuje klíčem. Používáno je několik variant, nejčastější je
+MIT-MAGIC-COOKIE-1. Při startu serveru program <TT>startx</TT> nebo
+<TT>xdm</TT> vygeneruje náhodný klíč o&nbsp;délce 128 bitů a předá ho serveru.
+Zároveň klíč uloží do souboru <TT>.Xauthority</TT> v&nbsp;domovském adresáři
+uživatele. Soubor je přístupný jen pro vlastníka. Klient si před připojením
+k&nbsp;serveru přečte klíč z&nbsp;<TT>.Xauthority</TT> a pošle ho serveru. Jestliže klíč
+souhlasí, server klienta akceptuje. V&nbsp;souboru <TT>.Xauthority</TT> je možné
+pomocí příkazu <TT>xauth</TT> udržovat klíče několika serverů. Autentizace
+funguje zcela transparentně z&nbsp;pohledu uživatele i programátora, správný klíč
+automaticky vybere a pošle knihovna Xlib. Autentizační data i
+veškerá ostatní komunikace v&nbsp;rámci X protokolu jsou po síti posílány bez
+jakékoliv ochrany a lze je odposlouchávat. Proto je v&nbsp;nedůvěryhodné síti
+vhodné X-ovou komunikaci chránit např. pomocí SSH. Příkaz
+<TT>ssh</TT> umí vytvořit šifrovaný tunel a X protokol do něj automaticky
+přesměrovat.
+
+<H2>Události a objekty</H2>
+
+<P>Unixový program běžící v&nbsp;textovém režimu (na terminálu) obvykle funguje
+tak, že přečte kus dat ze vstupu, zpracuje je a pošle výsledek na výstup. Pak
+přečte další část vstupu a tak dále až do konce vstupního souboru. Z&nbsp;logiky
+programu plyne, kdy se bude číst vstup a kdy generovat výstup. Takto fungují i
+interaktivní programy, ve kterých vstup pochází z&nbsp;klávesnice a výstup je
+vypisován na obrazovku.
+
+<P>Programy, které mají grafické uživatelské rozhraní, typicky používají jiný
+model &ndash; řízení událostmi. Akce uživatele, jako stisk klávesy nebo pohyb
+myší, jsou překládány na události. Událost je datová struktura obsahující typ
+(např. stisk tlačítka myši) a další parametry (poloha myši a identifikátor
+okna, v&nbsp;němž je kurzor). Program přijímá události a volá pro ně obslužné
+funkce &ndash; handlery. Jádrem událostmi řízeného kódu je cyklus zpracování
+událostí. Detaily jsou v&nbsp;různých grafických prostředích odlišné, ale princip
+je vždy stejný:
+<PRE>
+while(event = wait_for_event())
+    process_event(event);
+</PRE>
+Zdrojem událostí není jen uživatel. Události si mohou posílat i aplikace
+navzájem. Některé události generuje X server. Například když je potřeba
+nakreslit nově vytvořené okno nebo překreslit část okna, která byla předtím
+zakrytá, server pošle klientovi událost. V&nbsp;ní je specifikována oblast, která
+se má vykreslit.
+
+<P>Aby program promptně reagoval na požadavky uživatele, je nutné dodržovat
+několik zásad. Každý handler by měl běžet jen krátkou dobu a co nejdřív se
+vrátit zpět do cyklu zpracování událostí. Handler by neměl volat systémové
+funkce, které se mohou zablokovat, např. čekání na data ze sítě. Pro takové
+situace je k&nbsp;dispozici obdoba volání <TT>select</TT>. Proces si u&nbsp;správce
+událostí zaregistruje deskriptor souboru. Když je možné číst z&nbsp;deskriptoru
+nebo na něj zapisovat, je vygenerována událost. V&nbsp;handleru události se pak
+volá neblokující operace čtení nebo zápisu. Existují i další možnosti, jak
+řešit situace, kdy je potřeba vykonat delší nebo potenciálně blokující funkci.
+Výpočet se rozdělí na kratší úseky a v&nbsp;rámci jednoho volání handleru se
+provede jen jeden úsek. Handler se zaregistruje, aby se volal buď periodicky
+po uplynutí určitého časového intervalu, nebo vždy, když nejsou k&nbsp;dispozici
+žádné události pro zpracování. Dlouhotrvající činnosti se také dají přesunout
+do samostatného procesu nebo vlákna.
+
+<P>Při programování GUI se s&nbsp;výhodou používá objektově orientované
+programování. Každý prvek rozhraní (widget) je reprezentován jedním objektem.
+Mezi třídami widgetů je přirozená hierarchie dědičnosti daná podobností mezi
+widgety. Kořenem hierarchie je obecný widget, který má definovanou např.
+velikost nebo handler zajišťující nakreslení. Jedním z&nbsp;jeho potomků je
+tlačítko. Z&nbsp;něj je dále odvozený check box, lišící se vzhledem a tím, že se
+přepíná mezi dvěma stavy. Radio button je skoro totéž, jako check box, ale
+vypadá trochu jinak a obvykle je prvkem skupiny obsahující vždy jen jedno
+zaškrtnuté tlačítko. Dalším příkladem jsou widgety pro editaci textu a pro
+zobrazení seznamu položek. Pro ně je společná schopnost rolování, pokud obsah
+přesahuje viditelnou oblast widgetu. Sdílejí předka, který implementuje
+spolupráci se scrollbary. Objektově orientovaný toolkit nevyžaduje
+programovací jazyk s&nbsp;podporou objektů. Např. GTK+ je celé napsané v&nbsp;C. Nicméně
+uvidíme, jak implementace objektů v&nbsp;C prodlužuje a zesložiťuje výsledný kód.
+Rozdíl bude patrný při srovnání GTK+ a toolkitu Qt, který je napsaný v&nbsp;jazyce
+C++. Objektově orientovaný programovací jazyk tedy není nutností, ale je
+značnou výhodou.
+
+<P>Řízení událostmi je v&nbsp;X používané univerzálně. Na událostech je založené
+GTK+, Qt, ostatní toolkity i knihovna Xlib. Na druhou stranu objektová
+orientace je užitečná, ale ne nutná. Toolkity jsou obvykle založené na
+objektech, ale Xlib objekty nepoužívá. Pokud se pracuje s&nbsp;objekty, je
+oddělená logická struktura uživatelského rozhraní daná objekty (widgets)
+uvnitř programu a reprezentace GUI viditelná uživatelem reprezentovaná zdroji
+(resources) X serveru &ndash; okna, fonty, grafické kontexty, atd.
+
+<H2>Literatura</H2>
+
+<OL>
+<LI><EM>The Definitive Guides to the X Window System. O'Reilly &amp;
+Associates</EM> &ndash; klasická série knih o&nbsp;X, popisuje X protokol, Xlib,
+X Toolkit, toolkit Motif a použití prostředí X z&nbsp;pohledu uživatele a správce
+<LI><EM>Havoc Pennington: GTK+/GNOME Application Development. New Riders
+Publishing, 
+<A href="http://developer.gnome.org/doc/GGAD/">http://developer.gnome.org/doc/GGAD/</A></EM>
+&ndash; úvodní výklad programování v&nbsp;prostředí GNOME a vybraná témata
+o&nbsp;programování GTK+ (např. vytváření nových tříd widgetů)
+<LI><EM>Web toolkitu GTK+:
+<A href="http://www.gtk.org/">http://www.gtk.org/</A></EM>
+<LI><EM>Web desktopu GNOME:
+<A href="http://www.gnome.org/">http://www.gnome.org/</A></EM>
+<LI><EM>Web firmy Trolltech:
+<A href="http://www.trolltech.org/">http://www.trolltech.org/</A></EM>
+<LI><EM>Web desktopu KDE:
+<A href="http://www.kde.org/">http://www.kde.org/</A></EM>
+<LI><EM>Martin Beran: Programování pro X Window System. Přednáška na MFF UK
+Praha, 
+<A href="http://www.ms.mff.cuni.cz/~beran/vyuka/X/">http://www.ms.mff.cuni.cz/~beran/vyuka/X/</A></EM>
+</OL>
+
+<P>Stránky GTK+, GNOME, Trolltech a KDE obsahují zdrojové texty, uživatelskou
+a programátorskou dokumentaci, tutoriály i referenční příručky.
+</BODY>
+</HTML>

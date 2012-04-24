@@ -1,0 +1,340 @@
+<HTML>
+<HEAD>
+<META http-equiv="Content-Type" content="text/html; charset=ISO-8859-2">
+</HEAD>
+
+<BODY>
+<H1>Programování pro X Window System (4)</H1>
+
+<B>Martin Beran</B>
+<EM>&lt;<A href="mailto:beran@ms.mff.cuni.cz">beran@ms.mff.cuni.cz</A>&gt;</EM>
+
+<H2>Přehled widgetů</H2>
+
+<P>Dnes se podíváme, jaké widgety jsou v&nbsp;GTK+ k&nbsp;dispozici. Nebudeme se příliš
+pouštět do podrobností, protože třídy widgetů mají často desítky metod a
+podrobný výklad by byl příliš dlouhý a asi také dost nudný. Proto se zaměříme
+jen na nejdůležitější vlastnosti widgetů. Detaily je možné nalézt v&nbsp;referenční
+dokumentaci GTK+. Ukázkové programy demonstrující jednotlivé widgety se dají
+najít na <A href="http://www.gtk.org/">http://www.gtk.org/</A>. Další programy
+jsou na adrese <A href="http://www.ms.mff.cuni.cz/~beran/vyuka/X/prog/gtk/">http://www.ms.mff.cuni.cz/~beran/vyuka/X/prog/gtk/</A>.
+
+<P>Widget potřebuje X okno, aby mohl kreslit na obrazovku a přijímat události.
+Některé widgety nepotřebují dostávat události od X serveru. Aby se šetřily
+systémové zdroje X serveru, nemají takové widgety vlastní X okno a pro
+kreslení používají okno rodičovského widgetu. Pro testování, zda má widget
+X okno, se používá makro <TT>GTK_WIDGET_NO_WINDOW</TT>. Podobných maker pro
+zjištění vlastností widgetů existuje více. <TT>GTK_WIDGET_IS_SENSITIVE</TT>
+testuje, jestli bude widget reagovat na podněty uživatele. Při programování
+GUI je obvyklé, že s&nbsp;prvky rozhraní, např. položkami menu, které odpovídají
+dočasně nepřístupným funkcím programu, nemůže uživatel pracovat. Takové
+widgety jsou i graficky odlišeny, standardně jsou zobrazeny nevýraznou šedou
+barvou. Vypínat a zapínat interakci widgetu s&nbsp;uživatelem umožňuje funkce
+<TT>gtk_widget_set_sensitive</TT>. Chování widgetů ovlivňují ještě jiné
+příznaky, např. <EM>focus</EM> (widget bude dostávat vstup z&nbsp;klávesnice), nebo
+<EM>default</EM> (widget zareaguje na klávesu <TT>Enter</TT>, i když má focus
+jiný widget, obvykle se používá pro tlačítko <TT>OK</TT> v&nbsp;dialogu). S&nbsp;příznaky
+manipulují makra <TT>GTK_WIDGET_SET_FLAGS</TT> a 
+<TT>GTK_WIDGET_UNSET_FLAGS</TT>.
+
+<P>Téměř v&nbsp;každé aplikaci používající GTK+ se vyskytují tlačítka. Obyčejná
+tlačítka typu <TT>GtkButton</TT> se vyskytují především v&nbsp;dialozích, slouží
+pro uzavření dialogu a potvrzení (OK), resp. zrušení (Cancel) nastavených
+hodnot. Tlačítko obvykle obsahuje nějaký text nebo ikonu. Nicméně je to
+kontejner &ndash; potomek <TT>GtkBin</TT> &ndash; proto může obsahovat
+libovolný widget, např. hbox s&nbsp;ikonou a textem. Tlačítko s&nbsp;textem se vytvoří
+funkcí
+<PRE>
+GtkWidget* gtk_button_new_with_mnemonic(const gchar *label);
+</PRE>
+Znak, před kterým je v&nbsp;<TT>label</TT> podtržítko '<TT>_</TT>', bude podtržený
+a bude fungovat jako akcelerátor (spolu s&nbsp;klávesou <TT>Alt</TT>). Při stisku
+tlačítko generuje signál <TT>"clicked"</TT>. Z&nbsp;obyčejného tlačítka je odvozené
+<TT>GtkToggleButton</TT>, které se přepíná mezi dvěma stavy
+(stisknuto/nestisknuto) a při tom generuje signál <TT>"toggled"</TT>. Aktuální
+stav tlačítka se dá zjistit pomocí <TT>gtk_toggle_button_get_toggled</TT> a
+nastavit voláním <TT>gtk_toggle_button_set_toggled</TT>. Variantou toggle
+button je <TT>GtkCheckButton</TT>, které se liší pouze vzhledem. Z&nbsp;něho je
+dále odvozené <TT>GtkRadioButton</TT>. Tento typ tlačítek se používá ve
+skupinách propojených pomocí spojového seznamu <TT>GSList</TT> definovaného
+v&nbsp;knihovně GLib. Vždy pouze jedno tlačítko ze skupiny je aktivní. Vzhled
+jednotlivých typů tlačítek je vidět na obr. 1. Tlačítka
+<TT>GtkRadioButton</TT> jsou na obrázku vložená ve vboxu a ten je
+v&nbsp;<TT>GtkFrame</TT>, což je kontejner zobrazující kolem vložených widgetů
+rámeček s&nbsp;nadpisem.
+
+<DIV align="center">
+<P><IMG alt="tlačítka" src="buttons_frame.png">
+<P>Obr. 1: Tlačítka
+</DIV>
+
+<P>Obsah widgetu jako je velký obrázek, tabulka, nebo delší soubor v&nbsp;textovém
+editoru se nezobrazí celý najednou. Pro rolování viditelné části obsahu se
+používá kontejner <TT>GtkScrolledWindow</TT>. Tento widget má automaticky
+horizontální (<TT>GtkHScrollbar</TT>) a vertikální (<TT>GtkVScrollbar</TT>)
+scrollbar. Některé widgety, jako <TT>GtkTreeView</TT> nebo
+<TT>GtkTextView</TT>, počítají s&nbsp;podporou rolování a dají se do
+<TT>GtkScrolledWindow</TT> vložit přímo funkcí <TT>gtk_container_add</TT>.
+Jiné widgety, např. <TT>GtkImage</TT>, nejsou připravené na rolování. Mezi
+takový widget a <TT>GtkScrolledWindow</TT> je třeba vložit
+<TT>GtkViewport</TT> voláním <TT>gtk_scrolled_window_add_with_viewport</TT>.
+Tyto dvě metody nelze zaměňovat. Pokud bychom pro <TT>GtkTreeView</TT> použili
+viewport, fungovalo by sice rolování seznamu, ale posunovaly by se i nadpisy
+sloupců, což není moc vhodné. Widget <TT>GtkScrolledWindow</TT> s&nbsp;vloženým
+obrázkem typu <TT>GtkImage</TT> ukazuje obr. 2.
+
+<DIV align="center">
+<P><IMG alt="rolovací okno a obrázek" src="image.jpg">
+<P>Obr. 2: <TT>GtkScrolledWindow</TT> obsahující <TT>GtkImage</TT>
+</DIV>
+
+<P>Pro komunikaci mezi scrollbary a scrolled window se používá
+<TT>GtkAdjustment</TT>. Není to widget, ale objekt, který udržuje parametry
+pro rolování. Lze k&nbsp;němu připojit libovolný počet rolovacích oken a
+scrollbarů. Posun jednoho z&nbsp;nich změní položku <TT>value</TT> a zavolá
+<TT>gtk_adjustment_value_changed</TT>. Tato funkce způsobí poslání signálu
+<TT>"value_changed"</TT>. Signál dostanou ostatní widgety připojené
+k&nbsp;adjustmentu a upraví svůj stav. Při změně některé jiné položky adjustmentu
+&ndash; minimální nebo maximální hodnoty, řádkového posunu, stránkového posunu
+nebo velikosti stránky &ndash; je třeba volat <TT>gtk_adjustment_changed</TT>.
+Tím se vygeneruje signál <TT>"changed"</TT> pro všechny widgety připojené
+k&nbsp;adjustmentu. Podobné scrollbarům jsou widgety <TT>GtkHScale</TT> a
+<TT>GtkVScale</TT>. Používají se pro nastavení nějaké numerické hodnoty.
+Aktuální hodnota a přípustný interval jsou uložené v&nbsp;adjustmentu. Widgety typu
+scrollbar a scale, všechny napojené na jeden adjustment, jsou na obr. 3.
+
+<DIV align="center">
+<P><IMG alt="scrollbar a scale" src="adjustment.png">
+<P>Obr. 3: <TT>GtkScrollbar</TT> a <TT>GtkScale</TT>
+</DIV>
+
+<P>Jeden z&nbsp;nejjednodušších widgetů je <TT>GtkLabel</TT> &ndash; statický text,
+který neinteraguje s&nbsp;uživatelem. Obvykle se používá pro popisky položek
+dialogů a jako součást jiných widgetů, např. nápisy na tlačítkách
+(<TT>GtkButton</TT>). Label může být i víceřádkový, s&nbsp;automatickým zalamováním
+řádků. V&nbsp;dialogových oknech se pro zadávání hodnot používají kromě již
+zmíněných tlačítek widgety typu <TT>GtkEntry</TT> pro vstup jednoho řádku
+textu. Entry podporuje obvyklé editační klávesy, označování textu a
+cut&amp;paste pomocí myši. Ze základního <TT>GtkEntry</TT> je odvozený
+<TT>GtkSpinButton</TT>. To je vstupní řádek specializovaný na zadávání
+čísel. Pro uložení aktuální hodnoty a povoleného intervalu
+používá adjustment. Vedle editačního řádku zobrazuje dvě šipky, pomocí nichž
+je možné hodnotu zvětšovat nebo zmenšovat. Další variantou je
+<TT>GtkCombo</TT>. V&nbsp;něm lze kromě napsání textu z&nbsp;klávesnice vybírat
+z&nbsp;rozbalovacího seznamu řetězců zadaného ve formě spojového seznamu
+<TT>GList</TT>. Příkazem
+<PRE>
+gtk_entry_set_editable(GTK_ENTRY(GTK_COMBO(combo)->entry), FALSE);
+</PRE>
+se dá zakázat editace textu a povolit pouze hodnoty v&nbsp;seznamu. Alternativně
+lze pro výběr řetězce ze seznamu použít widget <TT>GtkOptionMenu</TT>. V&nbsp;něm
+se možné hodnoty zadávají ve formě menu (<TT>GtkMenu</TT> připojené k&nbsp;widgetu
+pomocí <TT>gtk_option_menu_set_menu</TT>). Obrázek 4 ukazuje widgety typu
+entry, spin button, combo box a option menu.
+
+<DIV align="center">
+<P><IMG alt="entry, spin button, combo box, option menu" src="entry.png">
+<P>Obr. 4: <TT>GtkEntry</TT>, <TT>GtkSpinButton</TT>, <TT>GtkCombo</TT> a
+<TT>GtkOptionMenu</TT>
+</DIV>
+
+<P>Hlavní okno aplikace je obvykle widget typu <TT>GtkWindow</TT>. Window
+manager k&nbsp;němu přidá rámeček, který okno zvýrazňuje a obsahuje ikony pro
+zavření, minimalizaci, maximalizaci, apod. Titulek v&nbsp;rámečku okna se nastavuje
+voláním <TT>gtk_window_set_title</TT>. V&nbsp;okně je typicky vbox. Do jeho
+horní části se umísťuje pruh menu (<TT>GtkMenuBar</TT>), pod něj toolbar
+(<TT>GtkToolbar</TT> v&nbsp;<TT>GtkHandleBox</TT>). Ve spodní části okna je
+stavový řádek (<TT>GtkStatusbar</TT>). Na obr. 5 je příklad takto
+koncipovaného hlavního okna aplikace, kde v&nbsp;hlavní části okna mezi
+toolbarem a stavovým řádkem je textový editor <TT>GtkTextView</TT>.
+
+<DIV align="center">
+<P><IMG alt="hlavní okno aplikace" src="text_status.png">
+<P>Obr. 5: Hlavní okno aplikace s&nbsp;menu, toolbarem, stavovým řádkem a textovým
+editorem
+</DIV>
+
+<P>Menu je obvykle kombinace hlavního pruhu menu typu <TT>GtkMenuBar</TT>, při
+výběru některé položky se rozbalí svislé menu <TT>GtkMenu</TT>. Struktura
+rozbalovacích menu může mít více úrovní. Třída <TT>GtkMenu</TT> se používá i
+pro kontextové popup menu, typicky aktivované pravým tlačítkem myši, a jako
+seznam položek v&nbsp;<TT>GtkOptionMenu</TT>. Struktura menu v&nbsp;aplikaci se dá
+vygenerovat postupným vytvářením jednotlivých widgetů. Vodorovné menu vytvoří 
+<TT>gtk_menu_bar_new</TT>, jednotlivé jeho položky jsou typu
+<TT>GtkMenuItem</TT> a přidávají se pomocí
+<TT>gtk_menu_item_new_with_mnemonic</TT> a <TT>gtk_menu_shell_append</TT>.
+Svislé menu se vytváří funkcí <TT>gtk_menu_new</TT>. Položky se do něj
+vkládají stejně jako do <TT>GtkMenuBar</TT>. Připojení <TT>GtkMenu</TT>
+k&nbsp;položce widgetu <TT>GtkMenuBar</TT> nebo k&nbsp;položce <TT>GtkMenu</TT> vyšší
+úrovně zajistí funkce <TT>gtk_menu_item_set_submenu</TT>. Alternativní metodou
+vytvoření celé struktury menu je použití menu factory. V&nbsp;poli struktur
+<TT>GtkItemFactoryEntry</TT> jsou definovány jednotlivé položky. Menu podle
+této definice vygeneruje posloupnost volání funkcí
+<PRE>
+static GtkItemFactoryEntry items[] = { ... };
+GtkWidget *window, *bar;
+GtkItemFactory *factory;
+GtkAccelGroup *accel;
+accel = gtk_accel_group_new();
+factory = gtk_item_factory_new(GTK_TYPE_MENU_BAR, "<MenuFactory>", accel);
+gtk_item_factory_create_items(factory, sizeof(items)/sizeof(*items),
+			      items, (gpointer)"callback_data");
+gtk_window_add_accel_group(GTK_WINDOW(window), accel);
+bar = gtk_item_factory_get_widget(factory, "<MenuFactory>");
+</PRE>
+
+<P>Do toolbaru se vkládají tlačítka pro aktivaci nejpoužívanějších funkcí
+programu. Každé tlačítko obsahuje volitelně text, ikonu, nebo oboje. Kromě
+obyčejných tlačítek se dají do toolbaru vložit i toggle button, radio button,
+nebo libovolný widget. V&nbsp;mnoha aplikacích se dá toolbar myší
+&bdquo;utrhnout&ldquo; z&nbsp;okna. Odtržený toolbar se stane samostatným top-level
+oknem. Přesunutím na původní místo se toolbar připojí zpět do okna. Tuto
+funkci zajišťuje kontejner <TT>GtkHandleBox</TT>. Lze do něj sice vložit
+jakýkoliv widget, ale obvykle se do něj přidává toolbar.
+
+<P>Stavový řádek slouží k&nbsp;zobrazování různých zpráv pro uživatele. Obsahuje
+zásobník zpráv, v&nbsp;němž lze přidávat a mazat. Zobrazena je vždy zpráva
+na vrcholu zásobníku, tj. poslední vložená nesmazaná zpráva. Platí pravidlo,
+že ve stavovém řádku se zobrazují méně závažná hlášení, protože je uživatel
+může snadno přehlédnout. Pro důležité zprávy je lepší použít samostatné
+modální dialogové okno.
+
+<P>K prvkům uživatelského rozhraní je užitečné přidat <EM>tooltipy</EM>, tj.
+krátké vysvětlující texty zobrazované, když se na widgetu po určitou dobu
+zastaví kurzor myši. Funkce <TT>gtk_tooltips_new</TT> vytvoří skupinu
+tooltipů typu <TT>GtkTooltips</TT>. Jednotlivé tooltipy pro různé widgety se
+vytvářejí a přidávají do skupiny pomocí <TT>gtk_tooltips_set_tip</TT>. Na obr.
+6 je tooltip připojený k&nbsp;tlačítku v&nbsp;toolbaru.
+
+<DIV align="center">
+<P><IMG alt="toolbar a tooltip" src="toolbartip.png">
+<P>Obr. 6: Toolbar v&nbsp;handle boxu se zobrazeným tooltipem
+</DIV>
+
+<P>Při programování GUI platí zásada, že když program dělá nějakou déle
+trvající akci a v&nbsp;jejím průběhu neinteraguje s&nbsp;uživatelem, měl by to dát
+vizuálně najevo. Pro operace o&nbsp;délce řádově jednotky sekund se hodí změnit
+kurzor na &bdquo;hodiny&ldquo;. Pro delší operace je lepší použít progress bar
+<TT>GtkProgressBar</TT>. Ten ukazuje odhad, kolik už je hotovo a kolik zbývá
+do konce. Odhad by měl být dostatečně přesný. Velmi špatně působí, když během
+2 sekund na progress baru naskočí 98% a zbývající dvě procenta trvají půl
+hodiny. Když nelze zbývající čas dostatečně správně odhadnout, je lepší
+progress bar přepnout do &bdquo;activity mode&ldquo;. Pak se zobrazuje pouze
+kmitající blok jako indikace, že se stále něco děje a program nezamrzl. Obě
+varianty progress baru jsou na obr. 7.
+
+<DIV align="center">
+<P><IMG alt="progress bar" src="progress.png">
+<P>Obr. 7: Progress bar
+</DIV>
+
+<P>Pro zobrazení a editaci textu existuje v&nbsp;GTK+ widget <TT>GtkTextView</TT>.
+GTK+ používá interně při práci s&nbsp;textem Unicode v&nbsp;kódování UTF-8. V&nbsp;knihovně
+GLib jsou funkce pro překódování mezi UTF-8 a aktuálním locale. Text není
+uložen přímo ve widgetu <TT>GtkTextView</TT>, ale je v&nbsp;samostatném objektu
+typu <TT>GtkTextBuffer</TT>. Kromě těchto dvou tříd se při práci s&nbsp;textem
+používají ještě iterátory <TT>GtkTextIter</TT>, značky <TT>GtkTextMark</TT> a 
+tagy <TT>GtkTextTag</TT>. Iterátor je ukazatel na znak používaný při
+různých operacích s&nbsp;textem. Důležité je, že při jakékoliv změně textu se
+iterátor zneplatní. Naopak značka zůstává platná i po změně obsahu textového
+bufferu. Je to jakýsi virtuální, neviditelný kurzor. Značky mají jména,
+<TT>"insert"</TT> je pozice viditelného kurzoru, <TT>"selection_bound"</TT> je
+druhý konec vybrané části textu. Tag definuje atributy úseku textu, např.
+font, barvu písma nebo pozadí. Ukázka widgetu <TT>GtkTextView</TT> je na obr.
+5.
+
+<P>Widget <TT>GtkTreeView</TT> zobrazuje seznam &ndash; posloupnost řádků,
+data v&nbsp;řádcích jsou uspořádána do sloupců, všechny položky ve stejném sloupci
+mají stejný typ. Stejný widget umí zobrazovat i stromovou strukturu, uživatel
+může pomocí myši otevírat jednotlivé úrovně stromu. Zobrazování seznamů a
+stromů je rozdělené na čtyři části. Hlavní je widget <TT>GtkTreeView</TT>.
+K&nbsp;němu je pro každý sloupec vytvořen objekt <TT>GtkTreeViewColumn</TT>, který
+obsahuje informace o&nbsp;položkách v&nbsp;tomto sloupci: nadpis sloupce, renderer a
+specifikace položky (prvku datové struktury odpovídající celému řádku)
+zobrazené ve sloupci. Renderer je potomek třídy <TT>GtkCellRenderer</TT>. Umí
+nakreslit jednu položku v&nbsp;jednom řádku. Model (<TT>GtkListStore</TT> nebo
+<TT>GtkTreeStore</TT>) je datová struktura, v&nbsp;níž jsou uložena data
+určená k&nbsp;zobrazení. Na obr. 8 je ukázka seznamu i stromu. Dva widgety
+<TT>GtkTreeView</TT> jsou vloženy v&nbsp;kontejneru <TT>GtkHPaned</TT>, jenž
+své dva synovské widgety zobrazuje v&nbsp;oddělených panelech. Velikost panelů
+může uživatel měnit posunem přepážky mezi nimi.
+
+<DIV align="center">
+<P><IMG alt="strom a seznam ve dvou panelech" src="tree_paned.png">
+<P>Obr. 8: Strom a seznam <TT>GtkTreeView</TT> ve dvou panelech
+<TT>GtkHPaned</TT>
+</DIV>
+
+<P>Zatím jsme se nezmínili o&nbsp;několika užitečných kontejnerových widgetech.
+Jedním z&nbsp;nich je <TT>GtkEventBox</TT>. Používá se v&nbsp;případě, že máme widget
+bez X okna (např. <TT>GtkLabel</TT>) a potřebujeme v&nbsp;něm přijímat události.
+Řešením je takový widget vložit do event boxu, což je widget, který sám o&nbsp;sobě
+nic nedělá, ale má X okno. Proto může dostávat události od X serveru. Pro
+skupiny tlačítek se používají třídy <TT>GtkHButtonBox</TT> a
+<TT>GtkVButtonBox</TT>. Jsou to boxy, u&nbsp;kterých lze buď jednotlivě, nebo pro
+všechny button boxy v&nbsp;celé aplikaci, nastavovat parametry pro rozmístění
+synovských widgetů. <TT>GtkAligment</TT> dovoluje pro synovský widget
+nastavovat pozici a velikost relativně vzhledem ke kontejneru.
+<TT>GtkFixed</TT> slouží pro vkládání synovských widgetů na pevně zadané
+souřadnice. V&nbsp;dialogových oknech s&nbsp;mnoha položkami se často používá
+<TT>GtkNotebook</TT>. Je to kolekce stránek se záložkami. Kliknutím na záložku
+lze vybrat určitou stránku. Na obr. 9 je ukázka notebooku v&nbsp;dialogovém okně,
+kde v&nbsp;aktuálně vybrané stránce je vložen standardní widget
+<TT>GtkColorSelection</TT> pro nastavení barvy.
+
+<DIV align="center">
+<P><IMG alt="notebook" src="notebook_dialog.png">
+<P>Obr. 9: Kolekce stránek (<TT>GtkNotebook</TT>)
+</DIV>
+
+<P>Pro dialogová okna se používá widget <TT>GtkDialog</TT>. Dialog je
+top-level okno, proto je odvozen z&nbsp;<TT>GtkWindow</TT>. Dialogové okno má dvě
+části oddělené horizontální čárou (separátorem <TT>GtkHSeparator</TT>). Horní
+část (<TT>GtkDialog.vbox</TT>) je oblast pro vkládání widgetů pro zobrazení a
+zadávání dat, jako jsou <TT>GtkEntry</TT>, <TT>GtkCheckButton</TT>, apod. Do
+spodní části (<TT>GtkDialog.action_area</TT>) se vkládají tlačítka pro
+uzavření dialogu, jako &bdquo;OK&ldquo;, &bdquo;Cancel&ldquo;,
+&bdquo;Yes&ldquo; nebo &bdquo;No&ldquo;. Pokud jsou tlačítka vložena pomocí
+<TT>gtk_dialog_add_button</TT> nebo <TT>gtk_dialog_add_buttons</TT>,
+vygeneruje stisk tlačítka signál <TT>"response"</TT> s&nbsp;parametrem (response
+ID) přiřazeným tlačítku při přidání do dialogu. Enumerace
+<TT>GtkResponseType</TT> definuje standardní hodnoty response. Dialogy jsou
+<EM>modální</EM> nebo <EM>nemodální</EM>. Nemodální dialog je po vytvoření
+zobrazen stejně jako normální top-level okno aplikace pomocí
+<TT>gtk_widget_show_all</TT>. V&nbsp;handleru signálu <TT>"response"</TT> se pak
+přečtou hodnoty nastavené uživatelem. Když je na obrazovce nemodální dialog,
+uživatel může pracovat i s&nbsp;ostatními okny programu. S&nbsp;modálními dialogy se
+pracuje pomocí funkce <TT>gtk_dialog_run</TT>.
+<PRE>
+resp = gtk_dialog_run(GTK_DIALOG(dialog));
+switch(resp) {
+case GTK_RESPONSE_NONE: ...
+case GTK_RESPONSE_OK: /* přečtení uživatelem nastavených hodnot */
+case GTK_RESPONSE_CANCEL: ...
+case GTK_RESPONSE_DELETE_EVENT: ...
+}
+gtk_widget_destroy(dialog);
+</PRE>
+Volání <TT>gtk_dialog_run</TT> zobrazí dialog a spustí rekurzivně cyklus
+zpracování událostí <TT>gtk_main</TT>. Stisk některého tlačítka nebo zrušení
+dialogu způsobí ukončení rekurzivní instance <TT>gtk_main</TT> a návrat
+z&nbsp;<TT>gtk_dialog_run</TT> s&nbsp;response ID odpovídajícím stisknutému tlačítku.
+Zatímco je modální dialog zobrazen, uživatel nemůže pracovat s&nbsp;žádným jiným
+top-level oknem programu. Výhoda modálních dialogů je, že vytvoření a
+zobrazení dialogu, čekání na stisk tlačítka a přečtení uživatelem nastavených
+hodnot lze zabalit do jedné funkce. U&nbsp;nemodálního dialogu je potřeba na jednom
+místě programu dialog zobrazit a jinde (v&nbsp;handleru signálu
+<TT>"response"</TT>) přečíst hodnoty. Z&nbsp;pohledu programátora jsou modální
+dialogy pohodlnější, nicméně pro uživatele jsou omezující, protože blokují
+zbytek aplikace. Proto je vhodnější používat spíše nemodální dialogy.
+Příkladem situace, kdy je naopak lepší modální dialog, je zobrazení chybové
+zprávy, u&nbsp;které chceme mít jistotu, že ji uživatel nepřehlédne.
+
+<P>Seznam widgetů v&nbsp;tomto článku není vyčerpávající. V&nbsp;GTK+ jsou ještě další
+widgety, jako standardní dialogy pro výběr jmen souborů, barev nebo fontů.
+Toolkit obsahuje také mnoho tříd, z&nbsp;nichž se obvykle nevytváří instance, ale
+jsou to bázové třídy pro widgety s&nbsp;podobnými vlastnostmi. Například
+z&nbsp;<TT>GTKBox</TT> jsou odvozené <TT>GtkButtonBox</TT>, <TT>GtkHBox</TT> a
+<TT>GtkVBox</TT>.
+</BODY>
+</HTML>

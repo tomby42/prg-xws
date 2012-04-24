@@ -1,0 +1,4 @@
+V dal¹ím èlánku vìnovaném toolkitu Qt si uká¾eme, jak jednodu¹e vytvoøit nový
+typ widgetù. Podíváme se, jak navzájem spolupracují utility tvoøící souèást
+Qt. Dále probereme mechanismus pøidìlování pozice a velikosti widgetùm a
+skonèíme kreslením.

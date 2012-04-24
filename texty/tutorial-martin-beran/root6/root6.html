@@ -1,0 +1,262 @@
+<HTML>
+<HEAD>
+<META http-equiv="Content-Type" content="text/html; charset=ISO-8859-2">
+</HEAD>
+
+<BODY>
+<H1>Programování pro X Window System (6)</H1>
+
+<B>Martin Beran</B>
+<EM>&lt;<A href="mailto:beran@ms.mff.cuni.cz">beran@ms.mff.cuni.cz</A>&gt;</EM>
+
+<H2>Typy, třídy, objekty</H2>
+
+<P>Toolkit GTK+ má svůj vlastní typový systém, definovaný v&nbsp;knihovně GObject.
+Každý datový typ má unikátní numerický identifikátor typu (<TT>GType</TT>),
+přidělený při registraci typu. V&nbsp;rámci inicializace toolkitu ve funkci
+<TT>gtk_init</TT> se registrují <EM>fundamentální typy</EM>, tj. primitivní
+typy jazyka C (např. <TT>int</TT> má identifikátor <TT>G_TYPE_INT</TT>) a
+<TT>G_TYPE_OBJECT</TT>, označující základní objektový typ <TT>GObject</TT>.
+Všechny třídy v&nbsp;GTK+ jsou odvozené z&nbsp;<TT>GObject</TT>. Typový systém
+nepodporuje vícenásobnou dědičnost, místo ní má interfejsy. Třídy
+nezaregistrované v&nbsp;<TT>gtk_init</TT> se automaticky registrují v&nbsp;okamžiku
+vytvoření prvního objektu dané třídy. Pro každou třídu jsou definovány dvě
+struktury. Struktura pro <EM>instanci</EM> obsahuje data konkrétního objektu.
+Ve struktuře pro <EM>třídu</EM> jsou ukazatele na funkce. Je to obdoba tabulky
+virtuálních metod používané v&nbsp;C++. Ve struktuře pro třídu mohou být i data
+třídy (obdoba členů <TT>static</TT> v&nbsp;C++). Pro tento účel se ale častěji
+používají <TT>static</TT> proměnné definované v&nbsp;souboru <TT>.c</TT>
+implementujícím třídu. Prvním prvkem každé struktury je vždy struktura
+bázového typu. Tím je zajištěno, že bude korektně fungovat přetypování na
+předka. Např. pro typ <TT>GtkButton</TT> jsou v&nbsp;souboru <TT>gtkbutton.h</TT>
+definice
+<PRE>
+typedef struct _GtkButton GtkButton;
+typedef struct _GtkButtonClass GtkButtonClass;
+
+struct _GtkButton
+{
+  GtkBin bin;
+  ...
+};
+
+struct _GtkButtonClass
+{
+  GtkBinClass parent_class;
+  ...
+};
+</PRE>
+
+<P>Pro každý typ widgetu <B>WIDGET</B> existuje funkce
+<TT>gtk_<B>WIDGET</B>_get_type</TT>, jež vrací identifikátor typu. Dále je
+definováno mnoho maker pro manipulaci s&nbsp;typy, např.:
+<UL>
+<LI><TT>GTK_TYPE_<B>WIDGET</B></TT> ... vrací identifikátor typu pro typ
+widgetů <B>WIDGET</B>
+<LI><TT>GTK_<B>WIDGET</B></TT> ... přetypuje parametr na ukazatel na objekt
+<B>WIDGET</B>; typ parametru musí být <B>WIDGET</B> nebo jeho potomek, jinak
+vypíše chybové hlášení
+<LI><TT>GTK_<B>WIDGET</B>_CLASS</TT> ... přetypuje parametr na ukazatel na
+strukturu třídy pro typ <B>WIDGET</B>; kontroluje, zda parametr je struktura
+pro třídu <B>WIDGET</B> nebo pro odvozenou třídu
+<LI><TT>GTK_IS_<B>WIDGET</B></TT> ... otestuje, zda parametr je objekt typu
+<B>WIDGET</B> nebo objekt odvozené třídy
+<LI><TT>GTK_IS_<B>WIDGET</B>_CLASS</TT> ... otestuje, zda parametr je
+struktura třídy pro typ <B>WIDGET</B> nebo pro odvozený typ
+</UL>
+
+<H2>Vytvoření objektu</H2>
+
+<P>Objekt nějakého typu <B>WIDGET</B> se vytvoří funkcí
+<TT>gtk_<B>WIDGET</B>_new</TT>. Pro některé typy widgetů existuje takových
+funkcí víc. Liší se jménem a parametry. Např. pro třídu
+<TT>GtkMenuItem</TT> jsou definované funkce <TT>gtk_menu_item_new</TT>,
+<TT>gtk_menu_item_new_with_label</TT> a
+<TT>gtk_menu_item_new_with_mnemonic</TT>. Na obr.&nbsp;1 je schematicky
+znázorněn postup vytvoření widgetu.
+
+<DIV align="center">
+<P><IMG alt="gtk_widget_new" src="widgetnew.png">
+<P>Obr. 1: Vytvoření widgetu
+</DIV>
+
+<P>Vytvoření widgetu typu <B>WIDGET</B> začíná zavoláním funkce
+<TT>gtk_<B>WIDGET</B>_new</TT>. Ta na začátku zjistí identifikátor typu
+voláním <TT>gtk_<B>WIDGET</B>_get_type</TT>. Pokud je tato funkce použita
+poprvé, musí zaregistrovat třídu v&nbsp;typovém systému knihovny GObject. To udělá
+pomocí funkce <TT>g_type_register_static</TT>, které předá identifikátor
+rodičovského typu a strukturu obsahující jméno nově registrované třídy,
+velikosti struktur pro třídu a pro instanci a ukazatele na inicializační
+funkce.
+
+<P>Identifikátor typu se předá funkci <TT>gtk_type_new</TT>, jež volá
+<TT>g_object_new</TT>. Tato funkce před vytvořením první instance daného typu
+inicializuje strukturu pro třídu voláním <TT>g_type_class_ref</TT>,
+která dále volá funkci <TT>type_class_init_Wm</TT>. Ta alokuje strukturu pro
+třídu a zkopíruje do ní &ndash; na začátek &ndash; strukturu rodičovské třídy.
+Jestliže nepostačuje bázovou třídu zkopírovat, lze pro třídu definovat funkci
+zajišťující další inicializaci kopie bázové třídy. Tyto inicializační funkce
+se volají postupně v&nbsp;celé posloupnosti bázových tříd ve směru od kořene
+hierarchie po rodiče právě inicializované třídy. Nakonec se provede
+inicializační funkce třídy, která především zajistí registraci properties a
+signálů.
+
+<P>Když je registrovaný typ a inicializována struktura pro třídu, je možné
+vytvořit instanci. Funkce <TT>gtk_type_new</TT> zavolá konstruktor definovaný
+pro třídu, jejíž objekt se vytváří. Konstruktor nejprve spustí konstruktor
+rodičovské třídy. Konstruktor <TT>g_object_constructor</TT> společného předka
+&ndash; třídy <TT>GObject</TT> &ndash; alokuje paměť pro strukturu instance. Pak
+zavolá postupně inicializační funkce pro objekty bázových tříd a tím
+inicializuje první položku struktury objektu, která obsahuje zděděná data.
+Nakonec se zavolá funkce pro inicializaci nově definovaných položek. Tím
+volání <TT>gtk_<B>WIDGET</B>_new</TT> končí a vrací ukazatel na nově vytvořený
+objekt.
+
+<H2>Properties a signály</H2>
+
+<P><EM>Properties</EM> jsou hodnoty přiřazené objektům a identifikované pomocí
+řetězcových klíčů. Jméno property se zadává buď samostatně (např.
+<TT>"border_width"</TT>), nebo spolu se jménem třídy (např.
+<TT>"GtkContainer::border_width"</TT>). Properties se dědí. Při čtení nebo
+nastavování hodnoty se property daného jména hledá od třídy objektu, s&nbsp;jehož
+property se pracuje, směrem ke <TT>GObject</TT>. Properties se nastavují
+funkcí <TT>g_object_set</TT> a čtou funkcí <TT>g_object_get</TT>. Pro některé
+properties existují i specializované funkce, které s&nbsp;nimi manipulují. Např.
+<TT>gtk_container_set_border_width</TT> má stejný efekt jako nastavení hodnoty
+property <TT>"GtkContainer::border-width"</TT>. Funkce
+<TT>g_object_class_list_properties</TT> slouží ke zjištění jmen všech
+properties definovaných v&nbsp;nějaké třídě.
+
+<P>Properties představují jednotné rozhraní, přes které lze manipulovat
+s&nbsp;hodnotami uvnitř objektů. Díky tomu, že jména properties jsou řetězce, dá se
+manipulace s&nbsp;nimi naprogramovat i bez apriorní znalosti jmen všech properties,
+s&nbsp;nimiž se bude pracovat. To je výhodné při implementaci rozhraní
+zpřístupňujícího GTK+ z&nbsp;nějakého skriptovacího jazyka, nebo pro programy na
+grafický interaktivní návrh GUI, jako je Glade.
+
+<P>Properties se definují v&nbsp;inicializační funkci třídy voláním funkce
+<TT>g_object_class_install_property</TT>. Ve třídě, která
+definuje vlastní properties, je nutné implementovat funkce pro čtení a
+nastavování properties definovaných v&nbsp;této třídě a ukazatele na ně přiřadit do
+<TT>((GObject&nbsp;*)klass)-&gt;get_property</TT> a
+<TT>((GObject&nbsp;*)klass)-&gt;set_property</TT>, kde <TT>klass</TT> je
+struktura pro třídu. Není třeba se starat o&nbsp;zděděné properties, protože se pro
+ně automaticky volají příslušné funkce bázových tříd. Funkce pro manipulaci
+s&nbsp;properties mohou dělat i komplexnější věci než jen číst či měnit nějakou
+datovou položku objektu. Lze si např. představit dvojici properties, jedna
+bude obsahovat šířku widgetu v&nbsp;pixelech a druhá v&nbsp;milimetrech. V&nbsp;datech
+objektu bude uložena pouze šířka v&nbsp;pixelech. Šířka v&nbsp;milimetrech se bude
+dynamicky dopočítávat podle rozlišení obrazovky. Změna šířky navíc způsobí
+překreslení widgetu.
+
+<P>V inicializační funkci třídy se definují také <EM>signály</EM>. Signály se
+rovněž dědí. Při definici signálu funkcí <TT>g_signal_new</TT> se zadává
+<UL>
+<LI>jméno signálu
+<LI>identifikátor typu, pro nějž se signál definuje
+<LI>pořadí, v&nbsp;jakém se spouští defaultní handler a handlery připojené pomocí
+<TT>g_signal_connect</TT>
+<LI>offset ukazatele na defaultní handler ve struktuře pro třídu vzhledem
+k&nbsp;začátku struktury
+<LI>akumulátor, do něhož se návratové hodnoty jednotlivých handlerů skládají,
+aby bylo možné získat jednu návratovou hodnotu vrácenou po zpracování všech
+handlerů
+<LI>marshaller, tj. funkce pro převod pole argumentů typu <TT>GValue</TT>
+(univerzální struktura, jež může obsahovat hodnoty různých typů) na seznam
+parametrů funkce
+<LI>typ návratové hodnoty nebo <TT>G_TYPE_NONE</TT>, pokud signál nic nevrací
+<LI>počet a typy parametrů handleru
+</UL>
+Vysvětlení asi potřebuje především marshaller. Při vygenerování signálu
+&ndash; např. funkcí <TT>g_signal_emit</TT> &ndash; se vytvoří pole parametrů
+ve formě struktur <TT>GValue</TT>. Handler ale má seznam parametrů konkrétních
+typů, stejně jako jakákoliv jiná funkce v&nbsp;jazyce C. Problém je, že C
+neposkytuje prostředek pro rozdělení pole do seznamu argumentů a volání funkce
+s&nbsp;těmito argumenty. Proto je nutné pro každou kombinaci typů parametrů
+definovat marshaller, což je funkce, která rozebere pole struktur
+<TT>GValue</TT>, předělá ho na seznam parametrů, zavolá funkci s&nbsp;těmito
+parametry a vrátí návratovou hodnotu volané funkce. GTK+ obsahuje marshallery
+pro mnoho kombinací typů parametrů. Pokud definujeme signál s&nbsp;parametry, pro
+něž není v&nbsp;GTK+ marshaller, musíme definovat příslušný marshaller sami.
+
+<H2>Důležité metody widgetů</H2>
+
+<P>Zrušení widgetu začíná voláním <TT>g_object_unref</TT> nebo
+<TT>gtk_widget_destroy</TT>. Vlastní destrukce widgetu je rozdělena do tří
+fází. Metoda <TT>dispose</TT> zruší X okno widgetu a vyjme widget
+z&nbsp;rodičovského kontejneru. Pak emituje signál <TT>"destroy"</TT> a tím zahájí
+druhou fázi. Handler <TT>destroy</TT> označí objekt jako
+&bdquo;nepoužitelný&ldquo; a uvolní s&nbsp;ním asociované systémové zdroje vyjma
+samotné struktury instance. V&nbsp;případě, že widget je kontejner, zruší synovské
+widgety. Mělo by však jít stále volat veškeré veřejné metody (protože na
+objekt stále mohou existovat platné reference), ty sice už nebudou nic dělat,
+nicméně program nehavaruje. Poslední fáze &ndash; <TT>finalize</TT> &ndash; se
+provede, teprve když počet referencí na objekt klesne na nulu. Uvolní se
+struktura instance a tím se definitivně dokončí zrušení widgetu.
+
+<P>Metoda <TT>realize</TT> ve třídě <TT>GtkWidget</TT> funguje pouze pro
+widgety, které nemají vlastní GDK/X okno. Pro ostatní widgety je nutno metodu
+<TT>realize</TT> předefinovat tak, že nastaví příznak <TT>GTK_REALIZED</TT>,
+vytvoří GDK okno voláním <TT>gdk_window_new</TT>, ukazatel na ně uloží do
+<TT>widget-&gt;window</TT>, k&nbsp;oknu přidá odkaz zpět na widget pomocí
+<TT>gdk_window_set_user_data(widget-&gt;window,&nbsp;widget)</TT> a nastaví
+styl widgetu voláním <TT>gtk_style_attach</TT>.
+
+<P>Metoda <TT>unrealize</TT> odmapuje a zruší GDK okno widgetu (pokud widget
+GDK okno má). Jestliže je widget kontejner, zavolá nejprve <TT>unrealize</TT>
+pro všechny synovské widgety.
+
+<P>Metody <TT>map</TT> a <TT>unmap</TT> nastaví, resp. zruší příznak widgetu
+<TT>GTK_WIDGET_MAPPED</TT> a zobrazí/schová GDK okno
+<TT>widget-&gt;window</TT>. Než se widget objeví na obrazovce, je nutné
+nastavit jeho velikost s&nbsp;využitím metod <TT>size_request</TT> a
+<TT>size_allocate</TT> tak, jak to bylo popsáno v&nbsp;kapitole o&nbsp;kontejnerech ve
+třetím dílu tohoto seriálu.
+
+<P>Widget, který není jen neviditelným kontejnerem pro jiné widgety, se musí
+umět nakreslit na obrazovku. Potřeba překreslit widget může nastat z&nbsp;několika
+důvodů. Jestliže se neviditelná část okna widgetu stane viditelnou &ndash;
+např. protože se přesune nebo odmapuje okno, které ji zakrývalo &ndash;
+dostane widget od X serveru událost <TT>"expose-event"</TT>. Handler události
+zajistí kreslení. Někdy se o&nbsp;překreslení rozhodne samo GTK+ (při změně
+velikosti widgetu nebo při nastavení nové theme). Při změně svého stavu se
+widget překreslí sám od sebe. Obsah widgetů v&nbsp;GTK+ se kreslí s&nbsp;použitím
+kreslicích funkcí knihovny GDK. Ještě lepší, než kreslit přímo pomocí GDK, je
+využít funkce z&nbsp;theme, aby vzhled widgetu ladil s&nbsp;ostatními a dal se měnit
+změnou theme.
+
+<H2>Definice nové třídy</H2>
+
+Pro každou třídu widgetů se vytváří samostatná dvojice souborů
+<TT>gtk<B>WIDGET</B>.h</TT> a <TT>gtk<B>WIDGET</B>.c</TT>. Je třeba definovat
+struktury pro třídu a instanci <TT>Gtk<B>WIDGET</B>Class</TT> a
+<TT>Gtk<B>WIDGET</B></TT>. Dále je nutné implementovat řadu metod pro:
+<UL>
+<LI>registraci typu <TT>gtk_<B>WIDGET</B>_get_type</TT>
+<LI>vytvoření instance <TT>gtk_<B>WIDGET</B>_new</TT>
+<LI>inicializaci třídy, která zajistí definování nových properties
+a signálů a nastavení defaultních handlerů signálů
+<LI>inicializaci instance
+<LI>zrušení objektu <TT>dispose</TT>, <TT>destroy</TT>, <TT>finalize</TT>
+<LI>realizaci a mapování <TT>realize</TT>, <TT>unrealize</TT>, <TT>map</TT>,
+<TT>unmap</TT>
+<LI>nastavení velikosti <TT>size_request</TT>, <TT>size_allocate</TT>
+<LI>kreslení <TT>expose_event</TT>
+</UL>
+
+<DIV align="center">
+<P><IMG alt="widget gtkev" src="gtkev.png">
+<P>Obr. 2: Definice nového widgetu
+</DIV>
+
+<P>Ukázka definice nového widgetu <TT>GtkEv</TT> je v&nbsp;souborech
+<A href="gtkev.h">gtkev.h</A> a <A href="gtkev.c">gtkev.c</A>. Tento widget má
+podobnou funkci jako program <TT>xev</TT> z&nbsp;distribuce X, tj. vypisuje
+informace o&nbsp;událostech, které dostává. Widget je zvláštní tím, že má dvě GDK
+okna. Widget je použit v&nbsp;programu <A href="gtk_ev_usage.c">gtk_ev_usage.c</A>.
+Okno tohoto programu je na obr.&nbsp;2. Widget <TT>GtkEv</TT> je upravený
+stejnojmenný widget z&nbsp;knihy Havoc Pennington: GTK+/GNOME Application
+Development.
+
+</BODY>
+</HTML>

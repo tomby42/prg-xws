@@ -1,0 +1,246 @@
+<HTML>
+<HEAD>
+<META http-equiv="Content-Type" content="text/html; charset=ISO-8859-2">
+</HEAD>
+
+<BODY>
+<H1>Programování pro X Window System (3)</H1>
+
+<B>Martin Beran</B>
+<EM>&lt;<A href="mailto:beran@ms.mff.cuni.cz">beran@ms.mff.cuni.cz</A>&gt;</EM>
+
+<H2>Hierarchické uspořádání widgetů a tříd</H2>
+
+<P>Widgety v&nbsp;GTK+ jsou hierarchicky uspořádané. Existují dvě hierarchie &ndash;
+widgetů a tříd. Widgety v&nbsp;programu jsou uspořádány do stromové struktury.
+V&nbsp;kořeni stromu je vždy top-level okno. Je to většinou hlavní okno aplikace nebo
+dialog. Program má tolik stromů widgetů, kolik má top-level oken. V&nbsp;uzlech 
+stromu jsou widgety uvnitř top-level okna. Všechny uzly kromě listů
+jsou takzvané <EM>kontejnery</EM>, tedy widgety, do nichž lze vložit další
+jeden nebo více widgetů. Vzhled oken na obrazovce přímo odpovídá hierarchii
+widgetů. Okna potomků leží vždy uvnitř okna rodičovského widgetu. Na obr. 1 je
+příklad top-level okna programu a odpovídající strom widgetů je na obr2.
+
+<DIV align="center">
+<P><IMG alt="top-level okno" src="widgety1.png">
+<P>Obr. 1: Příklad top-level okna
+</DIV>
+
+<DIV align="center">
+<P><IMG alt="strom widgetů" src="widgety2.png">
+<P>Obr. 2: Příklad stromu widgetů
+</DIV>
+
+<P>Obrázek 2 není úplně přesný, protože objekty typu <TT>GtkButton</TT> a
+<TT>GtkCheckButton</TT> nejsou pravé listy. Ve skutečnosti jsou to
+kontejnerové widgety, které obvykle obsahují nápis typu <TT>GtkLabel</TT>.
+
+<P>Hierarchie widgetů je v&nbsp;každém programu jiná a dynamicky se mění podle
+toho, jak vznikají a zanikají jednotlivé widgety. Druhý typ hierarchie je daný
+vztahy dědičnosti mezi třídami widgetů. Společným předkem všech tříd je
+<TT>GObject</TT> definovaný ve stejnojmenné knihovně. V&nbsp;knihovně GTK+ je od
+<TT>GObject</TT> odvozená třída <TT>GtkObject</TT> a z&nbsp;ní dále
+<TT>GtkWidget</TT>, což je bázová třída pro všechny widgety. Základ stromu
+widgetů je vždy stejný, odlišnosti vznikají, pokud program definuje vlastní
+nové typy widgetů. Malý výřez hierarchie typů widgetů je na obr. 3.
+
+<DIV align="center">
+<P><IMG alt="strom tříd" src="tridy.png">
+<P>Obr. 3: Část stromu tříd widgetů
+</DIV>
+
+<H2>Manipulace s&nbsp;widgety</H2>
+
+<P>Pro každou třídu existuje jedna nebo více funkcí pro vytvoření objektů této
+třídy. Např. prázdné tlačítko se vytvoří voláním <TT>gtk_button_new</TT>.
+Funkce <TT>gtk_button_new_with_label</TT> vyrobí tlačítko s&nbsp;nápisem. Další
+možnosti jsou tlačítko s&nbsp;akcelerátorem <TT>gtk_button_new_with_mnemonic</TT>
+nebo předdefinované tlačítko s&nbsp;nápisem a ikonou
+<TT>gtk_button_new_from_stock</TT>. Zavoláním funkce pro vytvoření widgetu
+vznikne objekt uvnitř programu &ndash; X klienta. Aby byl widget vidět na
+obrazovce, je třeba ho <EM>realizovat</EM>, tj. vytvořit pro něj GDK okno a
+dále X okno, které existuje v&nbsp;X serveru. Realizaci provádí funkce
+<TT>gtk_widget_realize</TT>. Následně je widget zobrazen pomocí
+<TT>gtk_widget_show</TT>, popř. <TT>gtk_widget_show_all</TT> zobrazí widget
+včetně všech potomků. Tyto dvě funkce se postarají i o&nbsp;vytvoření X oken, proto
+není nutné explicitně volat <TT>gtk_widget_realize</TT>. Existující widget lze
+opakovaně zobrazovat a schovávat pomocí <TT>gtk_widget_show</TT> a
+<TT>gtk_widget_hide</TT>. Existenci widgetu &ndash; včetně GDK a X okna &ndash;
+ukončí funkce <TT>gtk_widget_destroy</TT>.
+
+<P>GTK+ používá při správě paměti počítání referencí na objekty (reference
+counting). U&nbsp;každého objektu se pamatuje počet referencí na něj, tedy počet
+ukazatelů na objekt. Při uložení odkazu na objekt do nějakého ukazatele je
+třeba voláním funkce <TT>g_object_ref</TT> zvýšit o&nbsp;1 počet referencí. Naopak,
+pokud se hodnota ukazatele změní, je nutné snížit počet referencí pomocí
+<TT>g_object_unref</TT>. Když počet referencí klesne na nulu, znamená to, že
+objekt nadále není dostupný přes žádný ukazatel. GTK+ takový objekt
+automaticky zruší. Reference counting nefunguje dobře pro cyklické datové
+struktury. Jestliže existuje několik objektů, které tvoří cyklus vzájemných
+odkazů, počet referencí na každý objekt v&nbsp;cyklu je vždy aspoň jedna, i když
+&bdquo;zvenku&ldquo; na žádný z&nbsp;objektů neexistuje žádný odkaz a datová
+struktura jako celek je nedostupná. V&nbsp;takovém případě je možné některé
+ukazatele nezahrnovat do počtu referencí. Potom ovšem při zrušení objektu
+zbude neplatný ukazatel. Lepším řešením je používání tzv. slabých referencí
+(weak reference). Při nastavení hodnoty ukazatele se volá
+<TT>g_object_weakref</TT>. Tím se zaregistruje funkce, která bude automaticky
+zavolána při zrušení objektu. Tato funkce může např. vynulovat ukazatel. Při
+změně hodnoty ukazatele je možné odregistrovat slabou referenci voláním
+<TT>g_object_weakunref</TT>.
+
+<P>Mechanismus počítání referencí poněkud komplikují tzv. plovoucí reference.
+Funkce pro vytvoření widgetu vrátí ukazatel na objekt, který představuje
+jednu referenci. Obvykle je nový widget následně vložen do kontejneru, který
+přidá další referenci. Při zrušení kontejneru většinou chceme automaticky
+zrušit i všechny v&nbsp;něm vložené widgety. Abychom nemuseli vždy po vložení
+widgetu do kontejneru volat <TT>g_object_unref</TT>, je první reference na
+objekt vytvořena jako <EM>plovoucí</EM> (floating). Kontejner tuto referenci
+zruší pomocí <TT>gtk_object_sink</TT> poté, co přidá vlastní referenci. Je
+třeba dávat pozor na to, že při vyjmutí widgetu z&nbsp;kontejneru (funkcí
+<TT>gtk_container_remove</TT>) zruší kontejner svou referenci. Pokud
+nechceme, aby se vyjmutý widget zrušil, musíme před voláním
+<TT>gtk_container_remove</TT> použít <TT>g_object_ref</TT>. Takto vytvořená
+reference už není plovoucí, proto zůstane platná i při opětovném vložení
+widgetu do kontejneru. Plovoucí je vždy pouze první reference na objekt. První
+volání <TT>gtk_object_sink</TT> ji odstraní, opakovaná volání této funkce pro
+stejný objekt už nedělají nic.
+
+<H2>Kontejnery</H2>
+
+<P>Kontejnery jsou widgety, do nichž lze vkládat jiné widgety (včetně dalších
+kontejnerů). Všechny kontejnery vycházejí ze společného předka
+<TT>GtkContainer</TT>. Dají se rozdělit do dvou hlavních skupin. Jednu skupinu
+tvoří třídy odvozené z&nbsp;<TT>GtkBin</TT> a vyznačují se tím, že mohou obsahovat
+maximálně jeden synovský widget, přístupný přes položku <TT>GtkBin.child</TT>.
+Asi nejdůležitějším zástupcem této skupiny je třída <TT>GtkWindow</TT>, tedy
+top-level okno. Do kontejnerů z&nbsp;druhé skupiny lze vložit více widgetů. Jejími
+nejpoužívanějšími členy jsou boxy (<TT>GtkHBox</TT> a <TT>GtkVBox</TT>)
+obsahující widgety uspořádané do řádku nebo sloupce a tabulky
+(<TT>GtkTable</TT>), které umísťují synovské widgety do dvojrozměrné mřížky.
+
+<P>Kontejnery zajišťují automatické přidělování místa pro jednotlivé widgety.
+Než se zobrazí top-level okno, zjistí GTK+ požadovanou velikost okna a všech
+jeho potomků. K&nbsp;tomu se používá metoda <TT>gtk_widget_size_request</TT>, která
+vrátí minimální widgetem požadovanou velikost. Kontejnery mají tuto metodu
+předefinovanou tak, že se nejprve zavolá pro všechny synovské widgety a
+z&nbsp;jejich požadavků kontejner spočítá, jak musí být velký, aby se do něj všichni
+potomci vešli. Např. horizontální box vrátí požadovanou šířku rovnou součtu
+šířek synovských widgetů plus velikost mezer podle parametrů boxu a výšku
+rovnou maximu výšek synovských widgetů. Následně GTK+ ve spolupráci s&nbsp;window
+managerem nastaví velikost top-level okna. Skutečná velikost se může lišit od
+požadované, např. pokud uživatel pomocí window manageru změnil rozměry okna.
+Nakonec GTK+ oznámí oknu skutečně přidělenou velikost voláním metody
+<TT>gtk_widget_size_allocate</TT>. V&nbsp;kontejnerech tato metoda rozdělí oblast
+widgetu mezi jednotlivé synovské widgety a výsledek rozdělení jim oznámí opět
+voláním <TT>gtk_widget_size_allocate</TT>.
+
+<P>Některé funkce jsou společné pro všechny kontejnery a jsou definované ve
+třídě <TT>GtkContainer</TT>.
+<DL>
+<DT>
+<TT>void gtk_container_add(GtkContainer *container, GtkWidget *widget);</TT>
+<DD>Vloží widget do kontejneru. Obvykle se používá pro kontejnery odvozené
+z&nbsp;<TT>GtkBin</TT>. Každá kontejnerová třída má navíc definované vlastní funkce
+pro vkládání widgetů.
+<DT>
+<TT>void gtk_container_remove(GtkContainer *container, GtkWidget
+*widget);</TT>
+<DD>Odebere widget z&nbsp;kontejneru. Sníží o&nbsp;1 počet referencí na widget, takže
+pokud jedinou referenci držel kontejner, bude widget zrušen.
+<DT>
+<TT>void gtk_container_set_border_width(GtkContainer *container,
+guint border_width);</TT>
+<DD>Nastaví šířku okraje (v&nbsp;pixelech), tj. oblasti, do níž nebudou zasahovat
+vložené widgety.
+<DT>
+<TT>void gtk_widget_set_size_request(GtkWidget *widget, gint width, gint
+height);</TT>
+<DD>Nastaví minimální velikost widgetu. Během procesu přidělování místa
+widgetům se bude rodičovský kontejner snažit nezmenšit widget pod tuto
+velikost. Funkce je definovaná pro všechny widgety, nejen kontejnery.
+</DL>
+
+<P><EM>Horizontální</EM> (<TT>GtkHBox</TT>) a <EM>vertikální</EM>
+(<TT>GtkVBox</TT>) <EM>boxy</EM> jsou odvozené ze společného předka
+<TT>GtkBox</TT>. Pro vytvoření boxu slouží funkce
+<PRE>
+GtkWidget* gtk_hbox_new(gboolean homogeneous, gint spacing);
+GtkWidget* gtk_vbox_new(gboolean homogeneous, gint spacing);
+</PRE>
+Parametr <TT>homogeneous</TT> říká, zda všechny synovské hodnoty budou stejně
+velké. Parametr <TT>spacing</TT> nastavuje velikost mezery (v&nbsp;pixelech)
+ponechané mezi každou dvojicí widgetů. Pro vkládání widgetů do boxů jsou
+definovány funkce
+<PRE>
+void gtk_box_pack_start(GtkBox *box, GtkWidget *child, gboolean expand,
+			gboolean fill, guint padding);
+void gtk_box_pack_end(GtkBox *box, GtkWidget *child, gboolean expand,
+		      gboolean fill, guint padding);
+</PRE>
+První z&nbsp;nich vkládá widgety od levého/horního okraje boxu směrem doprava/dolů,
+druhá vkládá od pravého/dolního okraje směrem doleva/nahoru. Parametr
+<TT>expand</TT> říká, zda widget může zabírat více místa než je jeho minimální
+velikost. Pokud je nastaven na <TT>TRUE</TT> a <TT>fill</TT> je také
+<TT>TRUE</TT>, bude widget zvětšen tak, aby zaplnil veškeré dostupné místo.
+Při <TT>fill</TT> rovném <TT>FALSE</TT> nebude widget zvětšen a případné
+nadbytečné místo se stane součástí mezer kolem widgetu. Parametr
+<TT>padding</TT> definuje šířku prázdného místa po obou stranách widgetu.
+Parametry ovlivňují pouze jeden rozměr vkládaných widgetů. Výška všech synů
+hboxu, resp. šířka synů vboxu, je stejná a je rovna výšce (šířce) boxu
+zmenšené o&nbsp;okraj.
+
+<P>Význam jednotlivých parametrů boxu je zobrazen na obr. 4. Pro
+experimentování s&nbsp;boxy lze využít program <A href="boxes.c">boxes.c</A>, který
+nejdříve přečte ze standardního vstupu specifikace boxu a jeho synovských
+widgetů a následně box zobrazí.
+
+<DIV align="center">
+<P><IMG alt="box" src="box.png">
+<P>Obr. 4: Parametry boxu
+</DIV>
+
+<P><EM>Tabulka</EM> (<TT>GtkTable</TT>) se vytvoří funkcí
+<PRE>
+GtkWidget* gtk_table_new(guint rows, guint columns, gboolean homogeneous);
+</PRE>
+Parametry definují počet řádků a sloupců a zda všechna políčka tabulky mají
+být stejně velká. Při vkládání widgetů pomocí
+<PRE>
+void gtk_table_attach_defaults(GtkTable *table, GtkWidget *widget,
+			       guint left_attach, guint right_attach,
+			       guint top_attach, guint bottom_attach);
+</PRE>
+se definuje, ve kterých sloupcích a řádcích budou ležet jednotlivé strany
+widgetu. Existuje i funkce <TT>gtk_table_attach</TT>, která umožňuje
+specifikovat ještě další parametry. Fungování tabulky si lze představit tak,
+že sloupce a řádky jsou pevné tyče, které se mohou volně pohybovat, ale nesmí
+si vyměnit pořadí. Jednotlivé widgety se připevňují svými okraji k&nbsp;tyčím.
+Každý widget je gumový obdélník, může být libovolně roztažen, ale nedá se
+stlačit pod svou minimální velikost. Po vložení všech widgetů se tyče
+představující sloupce a řádky rozmístí tak, aby žádný widget nebyl menší, než
+je jeho povolené minimum, a aby zároveň žádný widget nebyl větší, než je
+nezbytně nutné. Na obr. 5 jsou vlevo znázorněny minimální velikosti čtyř
+widgetů. Vpravo je tabulka, jež vznikne posloupností příkazů
+<PRE>
+table = gtk_table_new(3, 3, FALSE);
+gtk_table_attach_defaults(table, widget1, 0, 3, 0, 1);
+gtk_table_attach_defaults(table, widget2, 0, 1, 1, 3);
+gtk_table_attach_defaults(table, widget3, 1, 2, 1, 2);
+gtk_table_attach_defaults(table, widget4, 2, 3, 2, 3);
+</PRE>
+
+<DIV align="center">
+<P><IMG alt="tabulka" src="tabulka.png">
+<P>Obr. 5: Vytvoření tabulky
+</DIV>
+
+<P>Automatické řízení rozměrů a pozic widgetů je výhodné, protože se
+programátor nemusí zabývat přesným umístěním jednotlivých widgetů. Navíc, když
+uživatel změní velikost okna, GTK+ na to zareaguje a rozumným způsobem upraví
+rozmístění widgetů v&nbsp;okně. Pro seznámení s&nbsp;fungováním kontejnerů je užitečné
+spustit si program Glade a v&nbsp;něm si vyzkoušet vkládání widgetů do kontejnerů.
+Jeho velkou výhodou je, že lze interaktivně měnit parametry kontejnerů a
+okamžitě vidět na obrazovce, jak se změní vzhled okna.
+
+</BODY>
+</HTML>

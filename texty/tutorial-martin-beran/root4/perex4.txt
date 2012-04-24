@@ -1,0 +1,5 @@
+Dnes se podíváme, jaké widgety jsou v GTK+ k dispozici. Nebudeme se pøíli¹
+pou¹tìt do podrobností, proto¾e tøídy widgetù mají èasto desítky metod a
+podrobnı vıklad by byl pøíli¹ dlouhı a asi také dost nudnı. Proto se zamìøíme
+jen na nejdùle¾itìj¹í vlastnosti widgetù. Detaily je mo¾né nalézt v referenèní
+dokumentaci GTK+.

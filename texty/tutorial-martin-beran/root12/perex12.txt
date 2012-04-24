@@ -1,0 +1,5 @@
+Dvanáctým dílem konèí struèný úvod do základù Xlib. Budeme se zabývat
+zpracováním událostí, komunikací mezi rùznými X-ovými klienty a podporou pro
+manipulaci s databází konfiguraèních informací pro aplikace. Na závìr se
+zmíníme o tom, jaké funkce Xlib pou¾ívá window manager, aby mohl spravovat
+top-level okna ostatních klientù.

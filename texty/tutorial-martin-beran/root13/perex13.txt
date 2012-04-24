@@ -1,0 +1,5 @@
+Tímto èlánkem konèí seriál o programování v X. V pøedchozích dílech jsme se
+seznámili se základy programování v GTK+, Qt a Xlib. Dne¹ní závìreèný díl
+obsahuje obecná pravidla, kterými je vhodné se pøi psaní grafických aplikací
+øídit. V èlánku jsou také porovnány výhody a nevýhody GUI a textového
+rozhraní.

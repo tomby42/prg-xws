@@ -1,0 +1,231 @@
+<HTML>
+<HEAD>
+<META http-equiv="Content-Type" content="text/html; charset=ISO-8859-2">
+</HEAD>
+
+<BODY>
+<H1>Programování pro X Window System (11)</H1>
+
+<B>Martin Beran</B>
+<EM>&lt;<A href="mailto:beran@ms.mff.cuni.cz">beran@ms.mff.cuni.cz</A>&gt;</EM>
+
+<H2>Kreslení</H2>
+
+<P>X Window System byl vyvíjen tak, aby mohl používat širokou škálu grafických
+karet a monitorů, od jednoduchých s&nbsp;několika málo stupni šedi až po
+truecolor s&nbsp;24 i více bity barevné informace na pixel. Používá bitmapovou
+grafiku a barevná hodnota pixelu se vždy na výslednou barvu přepočítává
+prostřednictvím barevné palety. Typ palety a způsob přepočtu definuje visual.
+Jako základní barevný model se používá RGB, který je však device-dependent,
+tj. stejně zadaná barva může na různých monitorech vypadat jinak. Od verze
+X11R5 je možné používat device-independent specifikace barev <EM>Xcms</EM> (X
+Color Management System). Určitá barva zadaná v&nbsp;některém z&nbsp;Xcms barevných
+prostorů by měla vypadat stejně na každém správně zkalibrovaném monitoru.
+Kromě zadání barvy pomocí hodnot jejích složek v&nbsp;některém barevném prostoru je
+možné používat jména barev. X má tabulku pro převod mezi jmény a hodnotami
+barev.
+
+<P>X rozlišuje virtuální palety definované pro jednotlivá okna a fyzickou
+paletu, kterou používá grafický adaptér pro zobrazování. Window manager
+instaluje virtuální palety do fyzické pomocí <TT>XInstallColormap</TT>.
+Jestliže nelze současně instalovat všechny virtuální palety, window manager se
+snaží instalovat alespoň palety patřící aktuální aplikaci &ndash; typicky té,
+v&nbsp;jejímž okně je kurzor myši &ndash; a tím zajistit její správné zobrazení.
+Okna ostatních aplikací pak mohou být zobrazena v&nbsp;nesprávných barvách.
+Klient si alokuje položky palety voláním funkcí <TT>XAllocColor</TT>,
+<TT>XAllocNamedColor</TT>, <TT>XcmsAllocColor</TT>, nebo
+<TT>XcmsAllocNamedColor</TT>. Vždy je potřeba zadat barvu a a funkce vrátí
+index do palety, tj. hodnotu pixelu, kterou je potřeba použít při kreslení,
+aby se zobrazila požadovaná barva. Takto alokované položky palet jsou
+read-only, tzn. jejich barvu nelze dodatečně měnit. Jejich výhoda je, že mohou
+být sdíleny několika klienty. Pokud je paleta měnitelná, dají se v&nbsp;ní alokovat
+kromě read-only i read/write položky. Taková položka nemůže být sdílená.
+Klient, který ji alokoval, může kdykoliv změnit její obsah a tím změnit
+barvu všech pixelů, jež byly nakresleny s&nbsp;hodnotou odpovídající indexu
+této položky.
+
+<P>Typy palet použitelné na určité obrazovce závisí na tom, jaké visuals
+podporuje X server. Pro obrazovky schopné zobrazovat pouze stupně šedi
+existují třídy visuals <EM>GrayScale</EM> (měnitelná paleta) a
+<EM>StaticGray</EM> (neměnná paleta). Paleta je jednosložková, hodnota pixelu
+se interpretuje jako index do palety a v&nbsp;položce palety se najde
+odpovídající hodnota jasu. Barevné obrazovky s&nbsp;malou bitovou hloubkou
+&ndash; nejčastěji 8 bitů &ndash; používají třídy visuals <EM>PseudoColor</EM>
+(měnitelná paleta) a <EM>StaticColor</EM> (neměnná paleta). Paleta je opět
+jednosložková, ale položka palety se interpretuje jako 3 hodnoty pro barevné
+složky R, G a B. Při použití velké bitové hloubky &ndash; např. 24 bitů
+&ndash; by jednosložková paleta byla příliš velká (2<SUP>24</SUP> položek).
+Proto existují třídy visual <EM>DirectColor</EM> (neměnná paleta) a
+<EM>TrueColor</EM> (měnitelná paleta). Ty mají třísložkové palety. Hodnota
+pixelu se rozdělí na tři čísla. Každé se použije jako index do jedné části
+palety pro jednu barevnou složku. Výsledné hodnoty dají dohromady barvu. Při 8
+bitech na každou složku je takto potřeba pouze 3.2<SUP>8</SUP> položek palety.
+Na dnešních grafických kartách se typicky používá visual TrueColor
+s&nbsp;barevnou hloubkou 24 bitů, kdy hodnoty pixelů jsou stejné, jako obsah
+příslušných položek palety, takže paleta pozbývá na významu.
+
+<P>Množina grafických primitiv v&nbsp;X je relativně malá, ale doplňují ji různá
+rozšíření, např. Render pro 2D grafiku včetně antialiasovaného textu a OpenGL
+pro 3D grafiku. My se zde zaměříme pouze na základní grafické možnosti X bez
+rozšíření. Kreslit se v&nbsp;X dá do tzv. <EM>drawables</EM>, což jsou okna a
+pixmapy. Pixmapa je bitmapový obrázek uložený na serveru. Obsah pixmapy se dá
+zkopírovat do okna pomocí <TT>XCopyArea</TT> nebo <TT>XCopyPlane</TT>.
+
+<P>Parametry kreslení se drží na serveru v&nbsp;<EM>grafickém kontextu</EM>.
+V&nbsp;požadavku na nakreslení grafického elementu se pak zadávají pouze souřadnice
+bodů a ID grafického kontextu, ale nemusí se přenášet hodnoty všech parametrů.
+Grafický kontext se vytváří funkcí <TT>XCreateGC</TT> a ruší funkcí
+<TT>XFreeGC</TT>. Jeho obsah lze měnit pomocí <TT>XChangeGC</TT> nebo
+<TT>XCopyGC</TT>, popř. je možné individuálně nastavovat jednotlivé parametry:
+<TT>XSetLineAttributes</TT>, <TT>XSetFileRule</TT>, <TT>XSetFunction</TT>,
+atd. Hodnoty v&nbsp;grafickém kontextu se dají i číst voláním
+<TT>XGetGCValues</TT>. Záleží na konkrétní situaci, zda je lepší mít jeden
+grafický kontext a měnit jeho parametry, nebo si předem připravit několik
+různě nastavených grafických kontextů.
+
+<P>Funkce <TT>XSetLineAttributes</TT> a <TT>XSetDashes</TT> nastavují
+parametry čar. Základní parametr je tloušťka čáry. Speciální hodnota 0 znamená
+čáru o&nbsp;šířce 1 pixel kreslenou rychlejším algoritmem než ostatní čáry. Čáry
+s&nbsp;tloušťkou 0 se mohou na různých serverech lišit, čáry s&nbsp;tloušťkou větší
+vypadají všude stejně. Dále se zadává styl čáry: <TT>LineSolid</TT> (plná
+čára), <TT>LineOnOffDash</TT> (přerušovaná čára) a <TT>LineDoubleDash</TT>
+(čára kreslená střídavě barvou popředí a pozadí). Druhý a třetí styl používají
+definici délek úseků přerušované čáry v&nbsp;parametrech <TT>dashes</TT> a
+<TT>dash_offset</TT>. Možnosti zakončení čáry jsou na obr. 1. Varianta
+<TT>CapNotLast</TT> funguje jen pro čáry šířky 0 a 1. Pokud se jedním
+požadavkem nakreslí několik spojených čar, dá se nastavit způsob propojení
+v&nbsp;místech napojení jednotlivých čar, viz obr. 2.
+
+<DIV align="center">
+<P><IMG alt="zakončení čar" src="cap_style.png">
+<P>Obr. 1: Zakončení čar
+</DIV>
+
+<DIV align="center">
+<P><IMG alt="spojení čar" src="join_style.png">
+<P>Obr. 2: Spojení čar
+</DIV>
+
+<P>Pro kreslení textu je nutné v&nbsp;grafickém kontextu nastavit font pomocí
+<TT>XSetFont</TT>. Před použitím je nutné nahrát font funkcí
+<TT>XLoadFont</TT>. Když potřebujeme znát metriky jednotlivých znaků, můžeme
+volat <TT>XLoadQueryFont</TT>. Každý font je v&nbsp;paměti pouze jednou, server ho
+uvolní z&nbsp;paměti, když ho všichni klienti přestanou používat, tj. skončí nebo
+zavolají <TT>XFreeFont</TT> či <TT>XUnloadFont</TT>.
+
+<P>Pro kreslení vyplněných polygonů je nutné specifikovat pravidlo pro
+vyplňování (<TT>fill_rule</TT>). Varianty jsou <TT>EvenOddRule</TT> (bod je
+vyplněn, jestliže nekonečně dlouhý paprsek vycházející z&nbsp;tohoto bodu protíná
+obrys v&nbsp;lichém počtu průsečíků), nebo <TT>WindingRule</TT> (paprsek protíná
+různý počet levotočivých a pravotočivých segmentů obrysu). Rozdíl mezi těmito
+dvěma pravidly je vidět na obr. 3. Dva způsoby vyplňování oblouků
+(<TT>arc_mode</TT>) jsou ukázány na obr. 4.
+
+<DIV align="center">
+<P><IMG alt="vyplňování polygonů" src="fill_rule.png">
+<P>Obr. 3: Vyplňování polygonů
+</DIV>
+
+<DIV align="center">
+<P><IMG alt="vyplňování oblouků" src="arc_mode.png">
+<P>Obr. 4: Vyplňování oblouků
+</DIV>
+
+<P>Standardně se při kreslení provádí ořezávání podle obrysu okna, tj. nelze
+kreslit mimo okno. Pomocí parametru <TT>subwindow_mode</TT> se dá zapnout
+ořezávání i podle synovských oken (<TT>ClipByChildren</TT>, standardní
+nastavení, kdy synovské okno leží na rodiči a zakrývá ho) nebo kreslení přes
+obsah synovských oken (<TT>IncludeInferiors</TT>). Oblast ovlivněnou kreslením
+lze dále redukovat nastavením ořezávací masky (<TT>clip_mask</TT>, funkce
+<TT>XSetClipMask</TT>, <TT>XASetClipRectangles</TT> a <TT>XSetRegion</TT>). To
+je bitmapa určující, které pixely se budou překreslovat a které zůstanou
+nezměněny. Příklad ořezávací masky je na obr 5, kde se z&nbsp;šedého obdélníku
+nakreslí jen tmavě šedá část.
+
+<DIV align="center">
+<P><IMG alt="ořezávání" src="clip_mask.png">
+<P>Obr. 5: Ořezávání
+</DIV>
+
+<P>Kreslení vyplněných oblastí se řídí parametrem <TT>fill_style</TT>.
+Nejjednodušší je vyplňování barvou popředí (<TT>FillSolid</TT>) nastavenou
+v&nbsp;parametru <TT>foreground</TT>. Druhá možnost je použít pro vyplňování
+pixmapu (<TT>FillTiled</TT>). Třetí varianta (<TT>FillStippled</TT>) je
+použití bitmapy (pixmapy s&nbsp;1 bitem na pixel). Kreslit barvou popředí se
+budou pouze ty pixely, jež mají v&nbsp;bitmapě hodnotu 1. Poslední způsob
+vyplňování je <TT>FillOpaqueStipled</TT>, kdy se barvou popředí kreslí pixely
+s&nbsp;hodnotou 1 v&nbsp;bitmapě a barvou pozadí pixely s&nbsp;hodnotou 0. Ve
+speciálních případech je možné změnou <TT>plane_mask</TT> nastavit, že
+kreslení bude pracovat jen s&nbsp;některými bitovými rovinami okna. Normálně
+se stará hodnota pixelu zapomene a nahradí se nově kreslenou hodnotou. Je ale
+možné tyto dvě hodnoty zkombinovat po jednotlivých bitech. K&nbsp;dispozici je
+všech 16 existujících binárních funkcí dvou binárních proměnných.
+
+<P>Xlib poskytuje funkce na kreslení jednotlivých bodů (<TT>XDrawPoint</TT>),
+úseček (<TT>XDrawLine</TT>), lomených čar (<TT>XDrawLines</TT>,
+<TT>XDrawSegments</TT> a <TT>XFillPolygons</TT>), obdélníků
+(<TT>XDrawRectangle</TT>, <TT>XDrawRectangles</TT>, <TT>XFillRectangle</TT> a
+<TT>XFillRectangles</TT>) a oblouků (<TT>XDrawArc</TT>, <TT>XDrawArcs</TT>,
+<TT>XFillArc</TT> a <TT>XFillArcs</TT>). Funkce začínající na <TT>XDraw</TT>
+kreslí jen obrysy. Funkce začínající na <TT>XFill</TT> kreslí vyplněné
+objekty. Počet objektů, jež lze nakreslit jedním voláním, závisí na maximální
+velikosti požadavku X protokolu. Toto maximum &ndash; udávané v&nbsp;jednotkách
+o&nbsp;velikosti 4 bajty) se dá zjistit voláním <TT>XMaxRequestSize</TT>. Maximum
+minus 3 udává maximální počet bodů. Počet úseček a obdélníků je poloviční,
+počet oblouků je třetinový. Veškeré rozměry se udávají v&nbsp;pixelech. Je nutné si
+dávat pozor na to, že stejně zadané rozměry znamenají při kreslení obrysů a
+vyplněných objektů něco jiného, jak je znázorněno na obr. 6.
+
+<DIV align="center">
+<P><IMG alt="obrys a vyplnění" src="obrys.png">
+<P>Obr. 6: Obrys a vyplnění
+</DIV>
+
+<P>X Window System podporuje 8bitové a 16bitové fonty. Kreslení řetězců
+pomocí fontu nastaveného v&nbsp;grafickém kontextu provádí funkce
+<TT>XDrawString</TT> a <TT>XDrawString16</TT>. Tyto funkce kreslí pouze
+jednotlivé znaky barvou popředí. Alternativně lze použít
+<TT>XDrawImageString</TT> a <TT>XDrawImageString16</TT>, které navíc kolem
+textu nakreslí obdélník (bounding box) barvou pozadí. Několik řetězců na
+jednom řádku se dá nakreslit jedním voláním <TT>XDrawText</TT> nebo
+<TT>XDrawText16</TT>. Pro každý řetězec se specifikuje font a horizontální
+posun vůči konci předchozího řetězce. Pozice textu při kreslení se zadává
+pomocí souřadnic začátku účaří (baseline).
+
+<P>V rámci podpory jiných jazyků než angličtiny se v&nbsp;X11R5 kromě jednoho
+fontu dá použít i sada fontů (<TT>XFontSet</TT>), což je množina fontů
+obsahujících dohromady všechny znaky potřebné pro zobrazení textu v&nbsp;určitém
+locale (národním prostředí). Pro zobrazení textu přibyly funkce s&nbsp;prefixem
+<TT>Xwc</TT>, jež používají řetězce typu <TT>wchar_t&nbsp;*</TT>, tj.
+s&nbsp;vícebajtovými znaky s&nbsp;pevným počtem bajtů na každý znak. Dále přibyly funkce
+s&nbsp;prefixem <TT>Xmb</TT>. Ty používají řetězce typu <TT>char&nbsp;*</TT>, kde
+mohou být různé znaky kódovány různým počtem bajtů. V&nbsp;XFree86 existují navíc
+funkce s&nbsp;prefixem <TT>Xutf8</TT> pro práci s&nbsp;Unicode řetězci v&nbsp;kódování UTF-8.
+X11R6 přineslo další zobecnění zavedením výstupních metod.
+
+<P>Seznam dostupných fontů lze zjistit pomocí <TT>XListFonts</TT> a
+<TT>XListFontsWithInfo</TT>. Jména fontů se zadávají ve formě <EM>XLFD (X
+Logical Font Description)</EM>. Každý font má jméno skládající se z&nbsp;částí
+oddělených pomlčkami, např.
+<TT>-misc-fixed-bold-r-normal--13-120-75-75-c-70-iso8859-2</TT>. Jednotlivé
+části jména definují vlastnosti fontu, např. rodinu fontů (<TT>fixed</TT>),
+velikost v&nbsp;pixelech (<TT>13</TT>), velikost v&nbsp;bodech (<TT>120</TT>) a kódování
+(<TT>iso8859-2</TT>). Dají se používat wildcardy, např.
+<TT>-*-*-medium-i-*--10-*-*-75-*-*-*-2</TT>. X server vybere první odpovídající
+font. Pokud v&nbsp;seznamu získaném funkcí <TT>XListFonts</TT> nebo utilitou
+<TT>xlsfonts</TT> narazíme na jméno fontu, které obsahuje nulovou velikost,
+jedná se o&nbsp;škálovatelný font. Ve volání <TT>XLoadFont</TT> můžeme nulu
+nahradit libovolným číslem a tím nastavit potřebnou velikost fontu. Aby bylo
+možné vypisované texty správně umístit na obrazovku, je nutné znát rozměry
+jednotlivých znaků &ndash; metriky fontu a všech jeho znaků. Tyto informace je
+možné získat pomocí funkcí <TT>XQueryFont</TT> a <TT>XLoadQueryFont</TT> ve
+formě struktur <TT>XFontStruct</TT> (metriky fontu) a <TT>XCharStruct</TT>
+(metriky znaků). Význam metrických informací je vidět na obr. 7.
+
+<DIV align="center">
+<P><IMG alt="metriky fontů" src="metriky.png">
+<P>Obr. 7: Metriky fontů
+</DIV>
+
+</BODY>
+</HTML>

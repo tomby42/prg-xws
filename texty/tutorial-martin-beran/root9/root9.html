@@ -1,0 +1,245 @@
+<HTML>
+<HEAD>
+<META http-equiv="Content-Type" content="text/html; charset=ISO-8859-2">
+</HEAD>
+
+<BODY>
+<H1>Programování pro X Window System (9)</H1>
+
+<B>Martin Beran</B>
+<EM>&lt;<A href="mailto:beran@ms.mff.cuni.cz">beran@ms.mff.cuni.cz</A>&gt;</EM>
+
+<H2>Přehled widgetů</H2>
+
+<P>V toolkitu Qt jsou k&nbsp;dispozici obdobné widgety jako v&nbsp;GTK+. Proto zde jen
+velmi stručně vyjmenuji ty nejdůležitější. Všechny widgety jsou odvozené
+z&nbsp;bázové třídy <TT>QWidget</TT>. Pro tlačítka existují třídy
+<TT>QPushButton</TT>, <TT>QCheckBox</TT> a <TT>QRadioButton</TT>. Přepínatelné
+tlačítko nemá samostatnou třídu. Místo toho je ve <TT>QPushButton</TT>
+definovaná property <TT>toggleButton</TT>. Statický text <TT>QLabel</TT> může
+obsahovat prostý text, rich text (formátovaný text, který vypadá jako
+zjednodušené HTML), číslo, obrázek nebo animaci. Pro vkládání jednořádkových
+textových hodnot slouží <TT>QLineEdit</TT>. Numerické hodnoty lze zadávat
+pomocí <TT>QSlider</TT>, <TT>QDial</TT> a <TT>QSpinButton</TT>. Jestliže
+chceme uživateli nabídnout výběr ze seznamu možností, máme k&nbsp;dispozici widgety
+<TT>QListBox</TT> a <TT>QComboBox</TT>. Widget <TT>QScrollView</TT> funguje
+jako obecná posuvná oblast, spolupracující se scrollbary <TT>QScrollBar</TT>.
+Ze třídy <TT>QScrollView</TT> jsou odvozeny widgety pro vícesloupcový
+seznam/strom (<TT>QListView</TT>), editaci textu (<TT>QTextEdit</TT>) a
+zobrazení formátovaného hypertextu (<TT>QTextBrowser</TT>). Qt obsahuje také
+widgety na zobrazení a editaci dat v&nbsp;SQL databázích: <TT>QDataTable</TT>,
+<TT>QDataBrowser</TT> a <TT>QDataView</TT>.
+
+<P>Pro vizuální sloučení logicky souvisejících widgetů do rámečku s&nbsp;nadpisem
+se &ndash; především v&nbsp;dialozích &ndash; používají <TT>QGroupBox</TT> a
+<TT>QButtonGroup</TT>. Třída <TT>QSplitter</TT> je okno s&nbsp;několika panely
+oddělenými uživatelem posouvatelnými přepážkami. Kolekce stránek pro dialogy
+obsahující velké množství widgetů se v&nbsp;Qt jmenuje <TT>QTabWidget</TT>.
+Hlavní okno aplikace je <TT>QMainWindow</TT>. Obsahuje předpřipravený pruh
+menu <TT>QMenuBar</TT>, dokovací oblasti <TT>QDockArea</TT> pro toolbary
+(<TT>QToolBar</TT>) a stavový řádek <TT>QStatusBar</TT>. Pro rozbalovací menu
+existuje třída <TT>QPopupMenu</TT>. 
+
+<P>Dialogová okna se v&nbsp;Qt realizují pomocí třídy <TT>QDialog</TT>. Dialog může
+být zobrazen ve dvou režimech. V&nbsp;základním režimu jsou zobrazené pouze
+nejčastěji používané položky. Navíc je v&nbsp;dialogu tlačítko napojené na slot
+<TT>QDialog::showExtension</TT>. Tím se zobrazí další položky dialogu,
+nastavené předtím voláním <TT>QDialog::setExtension</TT>. Nemodální dialog se
+zobrazí stejně jako libovolné jiné okno metodou <TT>show</TT>. Zpracování
+událostí v&nbsp;aplikaci probíhá normálně dál a v&nbsp;reakci na signál <TT>clicked</TT>
+po stisku některého tlačítka v&nbsp;dialogu dojde k&nbsp;přečtení nastavených hodnot a
+zavření dialogu. Modální dialog se spustí metodou <TT>QDialog::exec</TT>.
+Ukončení dialogu a nastavení návratové hodnoty pro <TT>exec</TT> zajistí sloty
+<TT>QDialog::accept</TT>, <TT>reject</TT> a <TT>done</TT>. Obvykle se
+připojují k&nbsp;signálu <TT>clicked</TT> tlačítek &bdquo;OK&ldquo; a
+&bdquo;Cancel&ldquo;.
+
+<H2>Datové struktury</H2>
+
+<P>V knihovně Qt je definována i řada tříd, které nejsou widgety. Některé
+datové typy poskytují podobné funkce jako třídy ze standardní knihovny C++.
+Jedná se o&nbsp;kontejnerové třídy <TT>QMap</TT>, <TT>QValueList</TT> a
+<TT>QValueVector</TT>, které odpovídají STL kontejnerům <TT>map</TT>,
+<TT>list</TT> a <TT>vector</TT>. K&nbsp;těmto kontejnerovým třídám jsou definované
+i příslušné iterátory a algoritmy. Toolkit Qt pro své vlastní potřeby používá
+datové struktury definované v&nbsp;Qt, nicméně jinde v&nbsp;programu je lze kombinovat
+s&nbsp;kontejnery z&nbsp;STL.
+
+<P>Asi nejdůležitější datový typ v&nbsp;Qt je <TT>QString</TT>. Toolkit jej používá
+prakticky všude, kde se pracuje s&nbsp;textem. Objekt třídy <TT>QString</TT>
+reprezentuje textový řetězec v&nbsp;kódování Unicode. Používá implicitní sdílení
+dat, takže kopírování řetězců je relativně nenáročná operace a ke skutečnému
+zkopírování dat řetězce dojde až při změně originálu nebo kopie. Místo
+alokované pro řetězec se automaticky zvětšuje podle potřeby. Podporována je
+konverze z&nbsp;a do řetězců ve stylu C (<TT>char&nbsp;*</TT>) včetně
+překódování mezi Unicode a ASCII, resp. jinými 8bitovými kódováními. Dále jsou
+v&nbsp;<TT>QString</TT> definovány metody pro porovnání řetězců, změny, hledání
+podle regulárních výrazů, apod. Alternativně Qt poskytuje i abstrakci
+klasických nulou ukončených řetězců: <TT>QCString</TT>. Tato třída používá
+explicitní sdílení dat a nabízí podobnou množinu operací jako
+<TT>QString</TT>,  ale tyto operace jsou často méně efektivní.
+
+<H2>Časovače, I/O, procesy</H2>
+
+<P>Podobně jako v&nbsp;GTK+, i aplikace v&nbsp;Qt někdy potřebují provést nějakou akci
+periodicky a nezávisle na událostech přicházejících od X serveru. Pro tyto
+účely existuje třída <TT>QTimer</TT>. Časovač je třeba nejprve vytvořit.
+
+<PRE>
+QTimer *t = new QTimer(parent);
+</PRE>
+
+Vždy při vypršení času se vygeneruje signál <TT>timeout</TT>, který lze
+napojit na slot implementující požadovanou periodickou akci.
+
+<PRE>
+connect(t, SIGNAL(timeout()), parent, SLOT(timeoutExpired()));
+</PRE>
+
+Pak už můžeme nastartovat periodický 
+
+<PRE>
+t-&gt;start(2000);
+</PRE>
+
+nebo jednorázový časovač.
+
+<PRE>
+t-&gt;start(2000, TRUE);
+</PRE>
+
+Čas se zadává v&nbsp;milisekundách. Speciální hodnota 0 funguje obdobně jako idle
+funkce v&nbsp;GTK+ &ndash; signál <TT>timeout</TT> se emituje, pokud je prázdná
+fronta událostí.
+
+<P>Pro síťové aplikace, jež potřebují zároveň zpracovávat události a čekat
+na data na soketu, existuje <TT>QSocketNotifier</TT>. V&nbsp;konstruktoru se
+nastavuje deskriptor soketu a typ událostí, na které se bude čekat
+(<TT>Read</TT>, <TT>Write</TT>, <TT>Exception</TT>). Když nastane požadovaná
+událost, <TT>QSocketNotifier</TT> emituje signál <TT>activated</TT>.
+
+<P>Qt obsahuje i třídy pro na platformě nezávislé čtení a zápis souborů
+(<TT>QFile</TT>), procházení adresářů (<TT>QDir</TT>), zjišťování informací
+o&nbsp;souborech (<TT>QFileInfo</TT>) a síťové funkce (<TT>QSocket</TT>,
+<TT>QFtp</TT>, <TT>QHttp</TT> a <TT>QDns</TT>). Na čtení a zápis textu do
+souboru nebo soketu slouží třída <TT>QTextStream</TT>, která poskytuje obvyklé
+streamové přetížené operátory <TT>operator&lt;&lt;</TT> a
+<TT>operator&gt;&gt;</TT>. Třída <TT>QProcess</TT> umí spustit externí program
+s&nbsp;argumenty, asynchronně psát na jeho standardní vstup, číst jeho standardní a
+chybový výstup, zjistit jeho PID, detekovat ukončení, přečíst návratový kód a
+násilně běh programu ukončit.
+
+<H2>Konfigurace programů</H2>
+
+<P>Qt poskytuje platformně nezávislé API pro ukládání konfigurace aplikací
+&ndash; třídu <TT>QSettings</TT>. Ve Windows se používá systémový registr. Na
+unixových systémech se konfigurační hodnoty ukládají do textových souborů
+v&nbsp;adresáři <TT>$HOME/.qt</TT>. Seznam adresářů, ve kterých se hledají
+konfigurační soubory, lze upravovat pomocí metod
+<TT>QSettings::insertSearchPath</TT> a <TT>QSettings::removeSearchPath</TT>.
+
+<P>Každá položka konfigurace je dvojice klíč, hodnota. Klíč je posloupnost
+dvou nebo více částí oddělených lomítky: <TT>/Program/Sekce/klic1/klic2</TT>.
+Takto pojmenovaná položka bude uložena jako <TT>klic1/klic2</TT> v&nbsp;sekci
+<TT>[Sekce]</TT> v&nbsp;souboru <TT>$HOME/.qt/program</TT>. Pokud má klíč jen dvě
+části <TT>/Program/klic</TT>, uloží se do sekce <TT>[General]</TT> v souboru
+<TT>$HOME/.qt/program</TT>.
+
+<P>Hodnoty jsou typu boolean, integer, double, řetězec, nebo seznam řetězců.
+Pro uložení hodnoty slouží přetížená metoda <TT>writeEntry</TT>. Metod pro
+čtení je několik, pro každý podporovaný typ jedna: <TT>readBoolEntry</TT>,
+<TT>readNumEntry</TT>, <TT>readDoubleEntry</TT>, <TT>readEntry</TT> a
+<TT>readListEntry</TT>. Klíč spolu s&nbsp;přiřazenou hodnotou zruší metoda
+<TT>removeEntry</TT>. Jednotlivé části jmen klíčů definují stromovou strukturu
+konfiguračních hodnot, podobně jako cesty k&nbsp;souborům definují stromovou 
+hierarchii adresářů ve file systému. Pro určitý uzel konfiguračního stromu lze
+získat seznam synovských uzlů pomocí <TT>entryList</TT> (klíče, které obsahují
+hodnoty) a <TT>subkeyList</TT> (klíče obsahující podklíče nižší úrovně).
+
+<H2>Komunikace mezi programy</H2>
+
+<P>Ukážeme si dva způsoby realizace meziprocesové komunikace v&nbsp;Qt. Oba
+využívají standardní Xové mechanismy. To znamená, že se data přenáší
+prostřednictvím X serveru a komunikující procesy nemusí mít mezi sebou přímé
+spojení. Navíc se dá komunikovat i s&nbsp;programy nepoužívajícími Qt.
+
+<P>Třída <TT>QClipboard</TT> se používá pro operace cut&amp;paste. V&nbsp;aplikaci
+existuje pouze jedna její instance <TT>QApplication::clipboard</TT>.
+Podporovány jsou operace vložení dat do clipboardu a přečtení dat
+z&nbsp;clipboardu. Přenášejí se buď texty (metody <TT>text</TT> a <TT>setText</TT>),
+obrázky (<TT>image</TT>, <TT>pixmap</TT>, <TT>setImage</TT> a
+<TT>setPixmap</TT>), nebo data v&nbsp;libovolném formátu identifikovaném MIME typem
+(<TT>data</TT>, <TT>setData</TT>).
+
+<P>Operace drag&amp;drop začíná typicky tak, že uživatel začne táhnout myší
+nějaký objekt na obrazovce. V&nbsp;handleru pro tuto událost
+(<TT>mouseMoveEvent</TT>) program vytvoří instanci některé třídy odvozené
+z&nbsp;<TT>QDragObject</TT> a zavolá její metodu <TT>drag</TT>. Widget, který může
+být cílem drag&amp;drop, to musí povolit pomocí <TT>setAcceptDrops(TRUE)</TT>.
+Dále je v&nbsp;něm třeba předefinovat minimálně dva handlery událostí. V&nbsp;metodě
+<TT>dragEnterEvent</TT> se testuje, zda přenášená data mohou být konvertována
+do požadovaného formátu a podle toho se akceptuje událost, např.
+
+<PRE>
+event-&gt;accept(QTextDrag::canDecode(event));
+</PRE>
+
+Metoda <TT>dropEvent</TT> pak zajistí přečtení dat:
+
+<PRE>
+if(QTextDrag::decode(event, text))
+    insertTextAt(text, event-&gt;pos());
+</PRE>
+
+<H2>Internacionalizace a lokalizace</H2>
+
+<P>Internacionalizace programu (často se zkracuje jako i18n) je přidání
+základní podpory pro různé jazykové a místní zvyklosti. Lokalizace (l10n) je
+pak např. přidání databáze přeložených textů, nastavení znakové sady a
+pravidel lexikografického třídění pro konkrétní jazyk nebo definování pravidel
+pro zápis čísel a peněžních částek používaných v&nbsp;určité zemi. My se zaměříme
+na překlad textů, tedy různých hlášení programu, položek menu, popisek prvků
+dialogu, apod.
+
+<P>Základní pravidlo je používat typ <TT>QString</TT> pro všechny texty, jež
+se budou zobrazovat uživateli. Každý takový řetězec se obalí voláním funkce
+<TT>tr</TT>:
+
+<PRE>
+QWidget *w = new QLabel(tr("Full file path:"), dlg);
+</PRE>
+
+Při definici akcelerátorů je vhodné používat třídu <TT>QKeySequence</TT>,
+která dovoluje zadat akcelerátor pomocí řetězce a tudíž na něj použít
+<TT>tr</TT>. Pokud nějaký text vzniká doplňováním hodnot do základního
+řetězce, doporučuje dokumentace Qt používat funkci <TT>QString::arg</TT>,
+protože ta umožňuje měnit pořadí, v&nbsp;jakém se budou hodnoty do řetězce vkládat.
+Např. hlášení &bdquo;<EM>5 files deleted in directory /tmp</EM>&ldquo;
+vygenerované pomocí
+
+<PRE>
+QString s(tr("%1 files deleted in directory %2"));
+s&nbsp;= s.arg(5).arg("/tmp");
+</PRE>
+
+se dá přeložit &bdquo;<EM>V adresáři /tmp bylo smazáno 5 souborů</EM>&ldquo;
+tím, že definujeme jako český ekvivalent řetězce <TT>"%1 files deleted in
+directory %2"</TT> text <TT>"V adresáři %2 bylo smazáno %1 souborů</EM>.
+
+<P>Když máme texty v&nbsp;programu připravené k&nbsp;překladu tím, že jsme k&nbsp;nim přidali
+volání funkce <TT>tr</TT>, extrahujeme je utilitou <TT>lupdate</TT> do souboru
+s&nbsp;příponou <TT>.ts</TT>. Pak už v&nbsp;programu Qt Linguist překládáme jednotlivé
+řetězce. Soubor <TT>.ts</TT> je ve formátu XML, takže kdo nechce používat
+Linguist, může se souborem pracovat v&nbsp;libovolném textovém editoru. Nakonec
+příkazem <TT>lrelease</TT> vytvoříme výsledné soubory řetězců (s&nbsp;příponou
+<TT>.qm</TT>) pro jednotlivé jazyky.
+
+<P>V aplikaci, typicky ve funkci <TT>main</TT>, musíme vytvořit objekt
+<TT>QTranslator</TT> a načíst do něj soubor řetězců pomocí
+<TT>QTranslator::load</TT>. Používání přeložených textů aktivujeme voláním
+<TT>QApplication::installTranslator</TT>. Soubory <TT>.qm</TT> se obvykle
+pojmenovávají tak, že součástí jména souboru je i kód jazyka. Aktuální jazyk,
+nastavený v&nbsp;environmentové proměnné <TT>LANG</TT> (např. <TT>cs_CZ</TT> pro
+češtinu), zjistíme metodou <TT>QTextCodec::locale</TT>.
+</BODY>
+</HTML>

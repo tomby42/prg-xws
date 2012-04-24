@@ -1,0 +1,6 @@
+Dne¹ním èlánkem zakonèíme seznámení s toolkitem Qt. Struènì vyjmenujeme
+základní widgety a kontejnerové tøídy. Pak probereme èasovaèe, vstupy a
+výstupy (práci se soubory a sí»ovými sokety), podporu pro ètení a zápis
+konfiguraèních souborù a podporu pro komunikaci mezi programy prostøednictvím
+clipboardu a drag&drop. Skonèíme návodem na lokalizaci textù zobrazovaných
+programem do rùzných jazykù.

@@ -1,0 +1,254 @@
+<HTML>
+<HEAD>
+<META http-equiv="Content-Type" content="text/html; charset=ISO-8859-2">
+</HEAD>
+
+<BODY>
+<H1>Programování pro X Window System (13)</H1>
+
+<B>Martin Beran</B>
+<EM>&lt;<A href="mailto:beran@ms.mff.cuni.cz">beran@ms.mff.cuni.cz</A>&gt;</EM>
+
+<H2>Jak vytvořit dobré GUI</H2>
+
+<P>Grafické uživatelské rozhraní by mělo být snadno ovladatelné, přehledné a
+intuitivní. Pro toolkity a desktopová prostředí obvykle existují
+pravidla, jak mají aplikace vypadat a fungovat. Např. pro GNOME je to dokument
+<A href="http://developer.gnome.org/projects/gup/hig/">GNOME Human Interface
+Guidelines</A>. Podobně styl KDE aplikací definuje dokument <A
+href="http://developer.kde.org/documentation/standards/kde/style/basics/index.html">KDE
+User Interface Guidelines</A>. Je vhodné se těchto pravidel držet, protože
+uživatelé mají zažitý určitý způsob ovládání grafického prostředí, v&nbsp;němž
+pracují, a jsou zvyklí na standardní vzhled a rozmístění jednotlivých
+ovládacích prvků GUI. Samozřejmě existují situace, kdy je vhodné některé
+pravidlo porušit. Ale programátor by pro to měl mít dostatečně dobrý důvod.
+Takovým důvodem není, že se mu alternativní vzhled GUI prostě zdá lepší.
+Každému se líbí něco jiného a standardní pravidla jsou dobrým kompromisem.
+Nestandardní chování aplikace nutí uživatele učit se nová pravidla a
+navíc si pamatovat, že platí pouze pro tuto jednu aplikaci.
+
+<P>Jednotlivé programy by neměly zapadnout do celého grafického uživatelského 
+prostředí jen vzhledově, ale i funkčně. Např. je potřeba, aby aplikace šla
+přidat do menu a aby se její ikona správně zobrazovala v&nbsp;panelu. Každá
+aplikace by měla používat stejný způsob konfigurace jako ostatní komponenty
+desktopu a brát ohled na globální nastavení, např. stylu widgetů, klávesových
+zkratek, nebo jazyka. Integrovaná desktopová prostředí obvykle obsahují
+mechanismus pro komunikaci a propojování aplikací a pro vkládání dokumentů
+z&nbsp;jedné aplikace do jiné. V&nbsp;GNOME se používá CORBA, KDE má vlastní
+nástroje DCOP a KParts. Každá aplikace, u&nbsp;níž to má jen trochu smysl, by
+tyto komunikační mechanismy měla používat. Už při psaní programu je dobré
+myslet na pozdější lokalizaci do jiných jazyků. Ideální je, když lze
+lokalizaci provést pouhým přeložením souboru textů používaných
+v&nbsp;programu, bez zásahu do kódu.
+
+<P>Na začátku KDE User Interface Guidelines je definováno několik obecných
+pravidel, kterých je dobré se při návrhu aplikace držet. Tato pravidla do
+značné míry platí pro veškerý software, i když nepoužívá GUI. Program by měl:
+<UL>
+<LI><EM>být vhodný pro daný účel</EM>: Neměl by nabízet nadbytečné funkce, jež
+matou uživatele.
+<LI><EM>být pochopitelný</EM>: Když uživatel program použije poprvé, měl by být
+schopen rychle zjistit, jak funguje, a naučit se ho používat.
+<LI><EM>umožňovat snadnou navigaci</EM>: Uživatel by měl stále vědět, kde se
+nachází. Navigace uživatele mezi částmi aplikace by neměla být příliš
+omezována.
+<LI><EM>odpovídat očekáváním</EM>: Program by měl fungovat konzistentně.
+<LI><EM>být tolerantní k&nbsp;chybám</EM>: Uživatelé dělají chyby. Program by měl
+na chyby rozumně zareagovat a poskytovat funkci Undo.
+<LI><EM>poskytovat zpětnou vazbu</EM>: Aplikace by měla uživateli okamžitě
+oznamovat, jaké funkce provádí.
+</UL>
+
+<P>Typická GUI aplikace má hlavní okno s&nbsp;menu a toolbarem v&nbsp;horní
+části a stavovým řádkem na dolním okraji. Správné menu obsahuje veškeré možné
+akce. Pokud nějakou akci nelze v&nbsp;určitém okamžiku provést, příslušná
+položka menu by měla být zakázaná, ale stále viditelná. V&nbsp;menu je dobré
+dodržovat obvyklé uspořádání položek a rozdělení do submenu. Dobrým zvykem je
+u&nbsp;všech položek, které po aktivaci nejprve otevřou dialog, psát na konci
+jména tři tečky. V&nbsp;menu tedy je &bdquo;New&ldquo; a &bdquo;Save&ldquo;,
+ale &bdquo;Open...&ldquo; a &bdquo;Save As...&ldquo;. Do stavového řádku se
+zapisují méně důležité informace pro uživatele o&nbsp;aktuálním stavu programu
+a o&nbsp;prováděných akcích. Zásadní zprávy, o&nbsp;kterých si chce být
+programátor jist, že je uživatel nepřehlédne, je třeba zobrazit ve formě
+modálního dialogu. Hlavní okno aplikace by mělo být rozumně použitelné i
+v&nbsp;malém rozlišení obrazovky (800x600 nebo dokonce 640x480) a zároveň by
+mělo být schopno využít libovolně velký prostor při maximálním zvětšení na
+obrazovce s&nbsp;velkým rozlišením.
+
+<P>Program v&nbsp;X by měl po celou dobu běhu reagovat na podněty uživatele a podle
+potřeby překreslovat svá okna. Řízení se musí dostatečně často vracet do cyklu
+pro zpracování událostí. Handlery událostí proto nesmí běžet moc dlouho.
+Jestliže je nutné provést časově náročnější akci, jako čtení souboru nebo
+složitější matematický výpočet, je potřeba ji rozdělit na menší úseky, volat
+je pomocí časovače nebo jako idle funkci a mezitím se vracet do zpracování
+událostí. Další varianta je přesunout dlouhotrvající výpočet do samostatného
+vlákna či procesu. Když je program něčím zaměstnán a nemůže provádět požadavky
+uživatele, měl by to dát vizuálně najevo. Pokud tento stav trvá maximálně pár
+sekund, stačí změnit tvar kurzoru, obvykle na symbol hodin. Pro delší časy se
+používá progress bar. Ten je obvykle k&nbsp;dispozici ve dvou módech. V&nbsp;jednom
+ukazuje, jaká část práce je hotova a kolik zbývá, v&nbsp;druhém pouze indikuje, že
+program stále pracuje. První mód je lepší, ale jen za předpokladu, že
+zobrazená hodnota dává dobrý odhad, jak dlouho bude muset uživatel ještě
+čekat.
+
+<P>Dialogová okna je lepší vytvářet jako nemodální, protože takové dialogy
+neomezují interakci uživatele s&nbsp;programem. Modální dialogy jsou vhodné pouze
+v&nbsp;situaci, když program potřebuje, aby uživatel zadal nějaké hodnoty dříve, než
+může pokračovat dál. Toolkity poskytují řadu standardních dialogů pro
+zobrazování zpráv, výběr souborů nebo fontů, nastavení barev, apod. Tyto
+standardní dialogy je vhodné používat, protože to přispívá ke konzistenci
+aplikace se zbytkem uživatelského prostředí. Správný dialog by měl jít
+zobrazit i v&nbsp;rozlišení 640x480, ale zároveň by mělo být možné ho zvětšit na
+celou obrazovku. Při zvětšování je třeba přidělit nejvíc místa widgetům
+obsahujícím největší množství dat, např. dlouhý seznam.
+
+<H2>Otevřené systémy</H2>
+
+<P>X Window System je dobrým příkladem otevřeného systému. Zde je třeba
+zdůraznit, že otevřený program není totéž, co open source program. Leckterý
+proprietární komerční software je více otevřený, než některé open source
+programy. Zde termín &bdquo;otevřený&ldquo; neznamená software, který je možné
+používat zadarmo nebo jehož zdrojový kód je zveřejněný. Jde o&nbsp;to, že otevřený
+program či systém používá zveřejněné a dobře dokumentované formáty dat a
+rozhraní. Tím je usnadněna spolupráce s&nbsp;dalšími programy a možnost použití
+různých implementací téže funkcionality od různých výrobců nebo na různých
+platformách.
+
+<P>Otevřené systémy bývají modulární, s&nbsp;jasně oddělenými moduly komunikujícími
+přes dobře definovaná rozhraní. To umožňuje podle potřeby používat různé
+varianty těchže modulů. V&nbsp;X jsou jasně oddělené nižší vrstvy (X protokol a
+Xlib) od vyšších vrstev (toolkity a window manager). Uživatel si může vybrat
+z&nbsp;velkého množství window managerů podle svého vkusu a programátor má na výběr
+z&nbsp;řady toolkitů. Programy používající různé toolkity mohou nejen běžet současně,
+ale umí si i navzájem předávat data. X klient a X server mohou spolupracovat,
+i když jsou spuštěny na odlišných architekturách, např. klient na nějakém
+superpočítači a server na unixové pracovní stanici, PC s&nbsp;Linuxem nebo dokonce
+s&nbsp;Windows.
+
+<P>Důležitou vlastností otevřeného softwaru je kvalitní dokumentace. Zde open
+source často zaostává. Pro ilustraci tohoto faktu se stačí podívat do
+manuálových stránek Linuxu na jedné a komerčních Unixů na druhé straně.
+Nedostatečná dokumentace je častá právě u&nbsp;programů s&nbsp;GUI. Důvod je jasný
+&ndash; program s&nbsp;řádkovým rozhraním obvykle nejde rozumně používat, pokud
+není k&nbsp;dispozici popis přepínačů nebo příkazů, jimiž lze ovládat. U&nbsp;grafických
+programů mají jejich autoři tendenci spoléhat na intuitivnost uživatelského
+rozhraní a pak opomenou zdokumentovat i věci, jež intuitivní nejsou. Často
+chybí i popis konfiguračních souborů a tak ten, kdo nechce používat klikací
+rozhraní pro konfiguraci programu, má smůlu.
+
+<P>Nedostatečná bývá nejen uživatelská, ale v&nbsp;ještě větší míře i
+programátorská dokumentace. Řada programátorů se bohužel mylně domnívá, že
+rozumně strukturovaný a komentovaný zdrojový text je dostatečnou
+programátorskou dokumentací. Zvláště špatné je, když neexistuje kompletní
+specifikace rozhraní nějakého modulu nebo knihovny a programátor musí jeho
+fungování luštit ze zdrojového kódu, místo aby se soustředil na vývoj svého
+programu. Navíc pak není vždy jasné, co je správné chování nějaké funkce a co
+chyba nebo implementační detail, který se může v&nbsp;další verzi změnit. Právě
+rozdíly v&nbsp;úrovni dokumentace jsou jedním z&nbsp;hlavních důvodů, proč se mi líbí Qt
+víc než GTK+.
+
+<H2>Grafické a textové rozhraní</H2>
+
+<P>Pod pojmem textové nebo řádkové rozhraní zde rozumím ovládání programu
+pomocí parametrů na příkazové řádce a textových příkazů. Program, bežící sice
+v&nbsp;textovém režimu, ale používající ovládání pomocí menu a myši se od plně
+grafických programů liší pouze méně atraktivním vzhledem, nikoliv stylem
+fungování.
+
+<P>Mezi uživateli počítačů je rozšířené přesvědčení, že příkazový řádek je
+čímsi zastaralým a kvalitní moderní program musí mít grafické rozhraní.
+Zastánci tohoto názoru říkají, že GUI má výhodu v&nbsp;tom, že je snadné na naučení
+a uživatelsky přívětivé. První tvrzení je obvykle pravdivé, druhé však ne
+vždy. Grafické rozhraní umožňuje snadno provádět jednotlivé operace, pro něž
+existují položky menu. Problém nastane, když je potřeba provést komplexnější
+nebo opakovanou operaci. Z&nbsp;uživatele se pak stává cvičená opice, která
+opakovaně mechanicky kliká na stejné položky menu a vyplňuje stejné dialogy.
+
+<P>Představme si, že v&nbsp;grafickém editoru chceme změnit velikost obrázku.
+Vybereme v&nbsp;menu položku &bdquo;Open&ldquo; a v&nbsp;dialogovém okně vybereme soubor
+s&nbsp;obrázkem. Po otevření souboru najdeme v&nbsp;menu funkci &bdquo;Resize&ldquo;,
+která si ještě otevře dialog pro zadání nové velikosti obrázku. Celou akci
+završíme kliknutím na &bdquo;Save&ldquo;. Potud je všechno v&nbsp;pořádku. Ovšem co
+když takto chceme upravit ne jeden, ale sto obrázků? V&nbsp;tu chvíli je lepší
+vrátit se k&nbsp;řádkovým utilitám a shellu. Změnu velikosti všech obrázků
+provedeme jediným příkazem
+<PRE>
+for f in *.jpg; do convert $f -resize 800x600 resized$f; done
+</PRE>
+
+<P>Lze samozřejmě namítnout, že taková hromadná operace je často používaná
+a proto ji leckterý grafický editor umí udělat tak, že si uživatel vybere
+seznam souborů a nechá provést požadovanou operaci na všechny. Jenomže množina
+funkcí programu je vždy omezená. Na druhou stranu řádkové programy mohou být
+pomocí shellu neomezeně kombinovány. Textové ovládání může být pro zkušeného
+uživatele příjemnější i pro provádění jednotlivých akcí. Napsat příkaz
+s&nbsp;parametry je totiž často rychlejší než vybrat položku z&nbsp;rozvětvené struktury
+menu a vyplnit parametry v&nbsp;dialogovém okně. To asi potvrdí každý znalec TeXu,
+který se kdy pokoušel vyrobit vzorec pomocí myši v&nbsp;editoru rovnic z&nbsp;MS nebo
+Open Office. I&nbsp;textové programy, které interaktivně komunikují s&nbsp;uživatelem,
+lze spouštět dávkově s&nbsp;použitím nástrojů jako je <TT>expect</TT>. 
+
+<P>Další oblastí, kde grafické rozhraní často selhává, je manipulace
+s&nbsp;konfigurací programů. Uživatel je odkázán na sadu dialogů, kde může nastavovat
+jednotlivé konfigurační hodnoty, což vypadá na první pohled dobře, avšak najít
+určitou položku nebo nastavit množinu položek na stejnou hodnotu v&nbsp;rozsáhlé
+konfiguraci nemusí být snadné. S&nbsp;textovým konfiguračním souborem takový
+problém odpadá, protože stačí v&nbsp;textovém editoru použít funkci pro hledání a
+nahrazování textu. Velmi užitečné je zaznamenávat posloupnost změn
+v&nbsp;konfiguraci, archivovat její jednotlivé verze a umět zobrazit rozdíly mezi
+nimi. S&nbsp;graficky ovládanou konfigurací ukládanou do kdovíjakých binárních
+souborů to je obtížné. Při použití textových konfiguračních souborů stačí
+nainstalovat si RCS a po každé úpravě některého souboru napsat
+<PRE>
+ci -l soubor
+</PRE>
+
+<P>Celkově se o&nbsp;mnohých programech s&nbsp;grafickým uživatelským rozhraním dá říct,
+že i když se snaží působit profesionálně, jsou to ve skutečnosti amatérské
+nástroje. Amatér, který věci příliš nerozumí a nehodlá se moc učit, potřebuje
+nástroj, který je jednoduchý. Přitom mu nevadí, že tento nástroj je dost
+omezený. Profesionál, jenž se svým nástrojem pracuje denně, se ho bude raději
+déle učit používat, když to bude vyváženo vyšší efektivitou práce s&nbsp;ním.
+
+<P>Samozřejmě existují programy, u&nbsp;nichž má čistě grafické rozhraní dobrý
+smysl. Naopak u&nbsp;některých programů nemá GUI smysl vůbec žádný. U&nbsp;velkého
+množství aplikací je však nejlepší spojit oba způsoby ovládání &ndash;
+grafický i textový. Uživatel tak může s&nbsp;programem začít snadno pracovat pomocí
+funkcí dostupných v&nbsp;menu a postupně se podle potřeby učit řádkové rozhraní
+poskytující přístup k&nbsp;pokročilejším schopnostem programu.
+
+<P>Dobrým příkladem kombinace textového a grafického rozhraní je debugger
+<TT>ddd</TT>. Ve skutečnosti je to X-ová nadstavba nad řádkovým debuggerem
+<TT>gdb</TT>. Umožňuje v&nbsp;jednom okně zobrazovat zdrojový text a
+nastavovat breakpointy, v&nbsp;dalším okně zobrazovat hodnoty proměnných,
+operace jako spuštění, přerušení a krokování programu jsou dostupné pomocí
+tlačítek. Ale má také textové okno, v&nbsp;němž lze psát příkazy pro
+<TT>gdb</TT>. Dalším příkladem úspěšné kombinace obou přístupů
+k&nbsp;uživatelskému rozhraní je textový editor <TT>gvim</TT>.
+
+<P>Každý program v&nbsp;X by měl dovolit nastavení aspoň základních parametrů
+na příkazovém řádku. Jedná se např. o&nbsp;identifikaci displeje (X serveru),
+k&nbsp;němuž se má program připojit, nebo o&nbsp;seznam souborů, se kterými
+bude pracovat. Užitečné je, když se dá program spustit v&nbsp;dávkovém režimu
+tak, že provede akce specifikované na příkazovém řádku a skončí. Nejlepší je
+přidat ke grafickému programu možnost skriptování, tj. propojit ho
+s&nbsp;interpretem nějakého programovacího jazyka a vyexportovat do interpretu
+pro použití ve skriptech pokud možno veškeré operace, jež program umí dělat.
+
+<H2>Závěr</H2>
+
+<P>Tento seriál článků si v&nbsp;žádném případě nekladl za cíl být
+vyčerpávajícím návodem na psaní programů pro X Window System. Šlo mi
+o&nbsp;to, ukázat základní informace o&nbsp;X z&nbsp;pohledu programátora.
+Úvod do GTK+, Qt a Xlib by měl usnadnit čtenáři orientaci v&nbsp;dané
+problematice a poskytnout východisko k&nbsp;dalšímu samostatnému studiu a
+experimentování. Na mé webové stránce <A
+href="http://www.ms.mff.cuni.cz/~beran/vyuka/X/">http://www.ms.mff.cuni.cz/~beran/vyuka/X/</A>
+jsou k&nbsp;dispozici poznámky k&nbsp;přednáškám, z&nbsp;nichž jsem vycházel
+při psaní článků. Nemají sice formu souvislého textu, avšak místy jdou více do
+podrobností. Na stejné stránce lze najít i sadu ukázkových programů
+demonstrujících možnosti obou probíraných toolkitů i Xlib a odkazy na některé
+internetové zdroje o&nbsp;X.
+
+</BODY>
+</HTML>

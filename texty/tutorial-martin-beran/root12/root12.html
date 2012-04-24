@@ -1,0 +1,312 @@
+<HTML>
+<HEAD>
+<META http-equiv="Content-Type" content="text/html; charset=ISO-8859-2">
+</HEAD>
+
+<BODY>
+<H1>Programování pro X Window System (12)</H1>
+
+<B>Martin Beran</B>
+<EM>&lt;<A href="mailto:beran@ms.mff.cuni.cz">beran@ms.mff.cuni.cz</A>&gt;</EM>
+
+<H2>Zpracování událostí</H2>
+
+<P>Událost v&nbsp;Xlib reprezentuje union <TT>XEvent</TT>. Sdružuje struktury
+pro jednotlivé typy událostí. Začátek struktury každé události je stejný.
+Obsahuje typ události, číslo požadavku X protokolu, jenž vygeneroval událost,
+příznak, zda událost vygeneroval X server nebo jiný klient funkcí
+<TT>XSendEvent</TT>, displej a okno, kde událost nastala. Za těmito položkami
+následují další položky v&nbsp;závislosti na typu události.
+
+<P>X server generuje události a ukládá je do fronty. Události z&nbsp;fronty
+server rozesílá klientům. Kopii určité události pošle všem klientům, kteří
+mají nastavený příjem tohoto typu událostí. Každý klient si vybírá typy
+událostí samostatně pro každé okno funkcí <TT>XSelectInput</TT>. Nepotřebné
+typy událostí je možné při zpracování prostě ignorovat, ale lepší je je
+nevybírat, protože pak je X server vůbec neposílá a šetří se přenosová
+kapacita mezi serverem a klientem.
+
+<P>Klient po úvodní inicializaci a vytvoření oken obvykle zahájí cyklus
+zpracování událostí, který vypadá zhruba takto:
+<PRE>
+while(1) {
+    XNextEvent(display, &amp;event);
+    switch(event.type) {
+        case Expose:
+            ...
+        case ButtonPress:
+            ...
+        case MappingNotify:
+            ...
+        default:
+            /* ignorované události */
+    }
+}
+</PRE>
+Funkce <TT>XNextEvent</TT> vrátí první událost z&nbsp;fronty. Pokud je fronta
+prázdná, vyprázdní buffer požadavků a čeká na příchod události. Xlib definuje
+řadu dalších funkcí pro neblokující čtení událostí nebo pro výběr událostí
+z&nbsp;fronty na základě různých kritérií, jako typ události, okno, nebo obecná
+podmínka reprezentovaná boolovskou funkcí.
+
+<P>Události z&nbsp;myši a klávesnice se doručují do okna, v&nbsp;němž je
+kurzor myši. Pokud toto okno nemá vybraný příslušný typ události, propaguje se
+událost směrem k&nbsp;rodičovským oknům. Distribuce událostí z&nbsp;klávesnice
+dále závisí na nastavení <EM>keyboard focus</EM>. Pokud má některé okno
+nastavený focus, dostává veškeré události z&nbsp;klávesnice, které vzniknou
+vně tohoto okna. Uvnitř okna s&nbsp;focusem funguje doručování událostí
+normálně, tj. událost dostane potomek, v&nbsp;němž je kurzor. Top-level oknům
+přiděluje focus window manager. Aplikace, jejíž top-level okno dostalo focus,
+jej může přidělit potomkům top-level okna pomocí <TT>XSetInputFocus</TT>. Při
+tom se generují události <TT>FocusOut</TT> a <TT>FocusIn</TT>. Alternativně
+může aplikace ponechat focus na top-level okně a uvnitř něho používat pro
+distribuci událostí z&nbsp;klávesnice nějaký interní mechanismus. Tuto metodu
+používá např. GTK+.
+
+<P>Existují situace, kdy je potřeba zajistit, že události z&nbsp;myši či
+klávesnice bude po určitou dobu dostávat pouze jediný klient bez ohledu na to,
+kde událost nastala. Takový klient si nastaví tzv. grab voláním
+<TT>XGrabPointer</TT> nebo <TT>XGrabKeyboard</TT>. Opětné uvolnění myši a
+klávesnice se provede funkcemi <TT>XUngrabPointer</TT> a
+<TT>XUngrabKeyboard</TT>. Obvykle je potřeba, aby informaci o&nbsp;uvolnění
+tlačítka myši dostalo stejné okno, ve kterém uživatel tlačítko stiskl. Proto X
+server automaticky nastaví po stisku tlačítka grab myši, pokud má klient
+vybrané události <TT>ButtonPress</TT> i <TT>ButtonRelease</TT>. Někdy je nutné
+po omezenou dobu vyhradit X server pro jediného klienta. Např. některé window
+managery při interaktivním přesunu nebo změně velikosti okna kreslí průběžně
+obrys okna a teprve nakonec překreslí celé okno. Aby nebylo třeba pamatovat si
+původní hodnoty pixelů překrytých obrysem, kreslí se obrys pomocí kombinace
+s&nbsp;původní hodnotou pixelů operací XOR. Z&nbsp;vlastností XOR plyne, že
+opětovné překreslení obnoví původní hodnotu a tedy obrys smaže. To ale platí
+jen tehdy, pokud se během dvou kreslicích operací hodnoty pixelů nezmění.
+Proto před zahájením interaktivní manipulace s&nbsp;oknem window manager
+zavolá <TT>XGrabServer</TT> a po definitivním umístění okna uvolní grab pomocí
+<TT>XUngrabServer</TT>. Mezi těmito dvěma voláními X server nezprácováná žádné
+požadavky ostatních klientů. Obecně platí, že jakýkoliv grab by se měl
+používat, pouze když je to nezbytně nutné.
+
+<P>Události z&nbsp;klávesnice reprezentované strukturou <TT>XKeyEvent</TT>
+obsahují kód stisknuté nebo uvolněné klávesy (<TT>XKeyEvent.keycode</TT>) a
+stav modifikátorů, tj. kláves jako Shift a Ctrl, v&nbsp;položce
+<TT>XKeyEvent.state</TT>. Mapování mezi fyzickými klávesami a hodnotami
+keycode je pevně dané X serverem. Klient obvykle událost předá funkci
+<TT>XLookupString</TT>. Ta převede keycode na <EM>keysym</EM> a na řetězec.
+Keysym je symbolická konstanta reprezentující klávesu, např. <TT>XK_a</TT>
+nebo <TT>XK_Page_Up</TT>. Tabulka pro mapování z&nbsp;keycode na keysym je
+definovaná globálně v&nbsp;X serveru. Dá se měnit utilitami <TT>xmodmap</TT>
+nebo <TT>setxkbmap</TT>. Druhá možnost využívá rozšíření XKB (X Keyboard
+Extension), které poskytuje větší flexibilitu při definování rozložení
+klávesnice než standardní obsluha klávesnice v&nbsp;X. Protože převodní
+tabulka je v&nbsp;serveru a převod na keysym dělá klient, rozešle server při
+změně rozložení klávesnice událost <TT>MappingNotify</TT>, na niž klienti
+zareagují aktualizací své kopie klávesové mapy pomocí
+<TT>XRefreshKeyboardMapping</TT>. Standardní mapování z&nbsp;keysym na řetězec
+přiřazuje klávesám generujícím platné znaky jednoznakové řetězce. Ostatním
+klávesám (šipky, funkční klávesy) přiřazuje prázdný řetězec. Funkce
+<TT>XRebindKeysym</TT> umožňuje změnit toto mapování lokálně v&nbsp;rámci
+jednoho klienta.
+
+<P>Některé jazyky mají složitější schéma psaní znaků než 1 klávesa = 1 znak.
+Jeden znak může být vytvořen posloupností několika stisků kláves. Takové
+skládání kláves řídí <EM>vstupní metody</EM> (<EM>input methods</EM>). Např.
+pro některé asijské jazyky používající písmo s&nbsp;velkým počtem znaků
+uživatel napíše název znaku v&nbsp;transkripci do latinky. Vstupní metoda mu
+přitom ve speciálním okně zobrazuje aktuální stav a umožňuje editaci. Nakonec
+se celý dlouhý název znaku překonvertuje na jediný znak a pošle se aplikaci.
+Dalším příkladem je i čeština. Obvyklá česká klávesnice používá mrtvé klávesy
+pro čárku a háček. Stisk mrtvé klávesy následovaný písmenem vygeneruje jediné
+čárkované nebo háčkované písmeno. O&nbsp;složení dvou kláves do jednoho
+písmene se opět postará vstupní metoda. Zapojení vstupních metod do komunikace
+mezi X serverem a klienty je zobrazeno na obr. 1. Klient A&nbsp;má jednoduchou
+vstupní metodu implementovanou jako součást Xlib. To může být případ českých
+mrtvých kláves. Klient B používá komplexní vstupní metodu fungující jako
+samostatný program napojený na server i klienta. Pro konverze znaků nebo třeba
+hledání znaků či slov ve slovníku používá vstupní metoda externí language
+engine.
+
+<DIV align="center">
+<P><IMG alt="vstupní metody" src="im.png">
+<P>Obr. 1: Vstupní metody
+</DIV>
+
+<P>Na straně klienta je potřeba nastavit správné locale (<TT>setlocale(LC_ALL,
+"")</TT>), otestovat, zda je podporované v&nbsp;Xlib
+(<TT>XSupportsLocale</TT>) a nastavit případné modifikátory
+(<TT>XSetLocaleModifiers</TT>) podle environmentové proměnné
+<TT>XMODIFIERS</TT>. Pak už je možné otevřít vstupní metodu (<TT>XOpenIM</TT>)
+a vytvořit vstupní kontext (<TT>XCreateIC</TT>). Během zpracování událostí se
+každá událost přijatá funkcí <TT>XNextEvent</TT> nejprve předá vstupní metodě
+pomocí <TT>XFilterEvent</TT> a podle návratové hodnoty klient buď událost
+ignoruje, nebo ji dále zpracovává, např. pomocí <TT>XLookupString</TT>.
+
+<H2>Komunikace mezi programy</H2>
+
+<P>X Window System obsahuje mechanismy pro komunikaci mezi klienty. Její
+pravidla definuje dokument <EM>Inter-Client Communication Conventions Manual
+(ICCCM)</EM>. Do tohoto manuálu je vhodné se vždy při použití některého
+komunikačního mechanismu podívat na detaily jeho fungování. Komunikace je
+zprostředkovaná serverem, takže klienti nemusí mít mezi sebou přímé spojení.
+Základním prostředkem pro předávání dat jsou <EM>properties</EM>, což jsou
+jakési balíčky dat připojené k&nbsp;oknům. Každé okno jich může nést několik.
+Property je identifikovaná jménem a číslem okna. Jsou v&nbsp;ní uložena data a
+jméno typu dat. Každý klient může měnit libovolnou property. Server při změně
+property vygeneruje událost <TT>PropertyNotify</TT>.
+
+<P>Jako jména properties a typů se používají <EM>atomy</EM>. Atom je
+jednoznačný číselný identifikátor. Zásadní problém takových identifikátorů
+jsou kolize, kdy dva logicky různé identifikátory mají stejnou hodnotu.
+Pravděpodobnost kolizí se sníží používáním delších identifikátorů, např.
+textových řetězců. Používání textových identifikátorů by však zvětšovalo objem
+dat přenášených mezi serverem a klientem. Řešení použité v&nbsp;X funguje tak,
+že každý atom má jméno. Klient pomocí <TT>XInternAtom</TT> pošle serveru
+řetězec a server mu vrátí atom. Pokud je funkce <TT>XInternAtom</TT> volána
+několikrát se stejným řetězcem, vrátí stejný atom. Pro různé řetězce vrací
+různé atomy.
+
+<P>Funkce <TT>XSetWMProperties</TT> slouží pro nastavení standardní sady
+properties, jimiž klient předává informace window manageru. Klient určuje
+titulek okna a ikony, obsah příkazového řádku použitelného pro restart klienta
+a jméno počítače, kde klient běží, dále ikonu a její počáteční pozici, omezení
+velikosti okna, počáteční stav okna (normální/ikona), model pro přidělování
+fokusu klávesnice a identifikátor skupiny top-level oken příslušných ke stejné
+aplikaci. Nastavením identifikátorů protokolů do property
+<TT>WM_PROTOCOLS</TT> říká klient, že chce od window manageru dostávat
+informace ve formě událostí <TT>ClientMessage</TT>. Protokol
+<TT>WM_TAKE_FOCUS</TT> slouží ke sdělení, kdy si aplikace smí nastavit focus
+voláním <TT>XSetInputFocus</TT>. Pomocí protokolu <TT>WM_SAVE_YOURSELF</TT>
+sděluje session manager nebo window manager klientovi, aby uložil svůj stav,
+neboť bude ukončen. Když klient používá protokol <TT>WM_DELETE_WINDOW</TT> a
+uživatel zkusí zavřít okno prostřednictvím window manageru (obvykle kliknutím
+na zavírací tlačítko v&nbsp;rámečku okna), předá window manager žádost
+o&nbsp;zavření okna klientovi. Klient si může vyžádat potvrzení od uživatele
+nebo uložit data a následně buď okno zavřít, nebo žádost ignorovat. Klient
+nepoužívající <TT>WM_DELETE_WINDOW</TT> bude odpojen od X serveru, jakmile
+uživatel prostřednictvím window manageru zavře některé jeho top-level okno.
+
+<P>Pro přenášení dat mezi klienty se používají výběry (selections).
+V&nbsp;Xlib se s&nbsp;nimi pracuje velmi podobně jako v&nbsp;GTK+. Schéma
+fungování výběrů je na obr. 2. Všimněte si, že vypadá téměř stejně jako obr. 1
+v&nbsp;5. dílu tohoto seriálu.
+
+<DIV align="center">
+<P><IMG alt="výběry" src="selections.png">
+<P>Obr. 2: Komunikace pomocí výběrů
+</DIV>
+
+<P>Výběrů lze definovat libovolně mnoho, ale obvykle se používá
+<TT>XA_PRIMARY</TT>. Když si uživatel vybere nějaká data, klient si přivlastní
+výběr funkcí <TT>XSetSelectionOwner</TT>. Předchozí vlastník výběru je
+o&nbsp;tom informován událostí <TT>SelectionClear</TT>. Když chce uživatel
+vložit data do nějakého okna, klient vlastnící toto okno zavolá
+<TT>XConvertSelection</TT>. V&nbsp;parametrech zadá property, do níž má
+vlastník data vložit, a požadovaný typ dat (target). Vlastník výběru dostane
+událost <TT>XSelectionRequest</TT> a v&nbsp;reakci na ni uloží data do
+property pomocí <TT>XChangeProperty</TT> a funkcí <TT>XSendEvent</TT> pošle
+příjemci dat událost <TT>SelectionNotify</TT>. Příjemce si pak data vyzvedne
+voláním <TT>XGetWindowProperty</TT>.
+
+<H2>Konfigurace aplikací</H2>
+
+<P>Pro konfiguraci aplikací poskytuje Xlib funkce pro práci s&nbsp;tzv.
+<EM>resource databází</EM>. Jednotlivé konfigurační hodnoty (resources) se při
+startu programu čtou z&nbsp;několika míst. V&nbsp;pořadí podle priority od
+nejmenší po největší jsou to postupně:
+<OL>
+<LI>Soubor <TT><EM>Classname</EM></TT> v&nbsp;adresáři
+<TT>/usr/X11R6/lib/X11/app-defaults</TT>. Zde <TT><EM>Classname</EM></TT> je
+označení třídy aplikace, které je obvykle stejné jako jméno programu
+s&nbsp;prvním nebo několika prvními písmeny změněnými z&nbsp;malých na velká,
+např. <TT>XTerm</TT> pro program <TT>xterm</TT>.
+<LI>Soubor <TT><EM>Classname</EM></TT> v&nbsp;adresářích zadaných
+environmentovými proměnnými <TT>XUSERFILESEARCHPATH</TT> a
+<TT>XAPPLRESDIR</TT>.
+<LI>Properties <TT>RESOURCE_MANAGER</TT> root okna obrazovky 0 a
+<TT>SCREEN_RESOURCES</TT> root oken jednotlivých obrazovek. Obsah těchto
+properties se obvykle nastavuje programem <TT>xrdb</TT> při startu
+uživatelského prostředí X. Pokud nejsou nastavené, použije se soubor
+<TT>.Xdefaults</TT> v&nbsp;domovském adresáři.
+<LI>Soubor zadaný environmentovou proměnou <TT>XENVIRONMENT</TT>, když není
+nastavená, použije se soubor <TT>.Xdefaults-<EM>hostname</EM></TT>
+v&nbsp;domovském adresáři.
+<LI>Argumenty z&nbsp;příkazové řádky
+</OL>
+
+<P>Na začátku programu je nutné nejprve volat inicializační funkci
+<TT>XrmInitialize</TT>. Jednotlivé části resource databáze se čtou pomocí
+funkcí <TT>XrmParseCommand</TT>, <TT>XrmGetFileDatabase</TT> a
+<TT>XrmGetStringDatabase</TT>. Nakonec se vše spojí do jediné databáze voláním
+<TT>XrmMergeDatabases</TT>.
+
+<P>Jednotlivé položky resource databáze jsou řádky tvaru <TT>jméno:
+hodnota</TT>. Hodnota je řetězec, do kterého je možné pomocí escape sekvencí
+vkládat libovolné znaky, např. &bdquo;<TT>\n</TT>&ldquo; je konec řádku a
+&bdquo;<TT>\123</TT>&ldquo; je znak s&nbsp;oktalovým číslem 123. Zajímavější
+je jméno položky. Skládá se z&nbsp;komponent oddělených tečkami. Každá
+komponenta je buď jméno třídy začínající velkým písmenem, nebo jméno instance
+začínající malým písmenem. V&nbsp;aplikacích používajících X Toolkit
+odpovídají jednotlivé komponenty úrovním stromu widgetů. V&nbsp;programech
+postavených přímo nad Xlib je možné stromovou strukturu resource databáze
+použít pro logické uspořádání konfiguračních hodnot. Místo libovolné
+komponenty jména (kromě poslední), se dá použít wildcard otazník. Posloupnost
+libovolně mnoha komponent lze nahradit wildcardem hvězdička. Příklad úseku
+resource databáze:
+
+<PRE>
+Fig.exportLanguage:         	  eps
+.xf86cfg.geometry:                320x400
+XCalc*hp.button1.horizDistance:   4
+*Text.?.background:               rgb:29/44/94
+</PRE>
+
+<P>Pro hledání v&nbsp;databázi slouží funkce <TT>XrmGetResource</TT>. Jako
+parametry dostane dvě kompletní jména položek bez wildcardů. Jedno jméno je
+posloupnost jmen tříd, ve druhém jsou pouze jména instancí. Funkce najde
+v&nbsp;databázi nejlépe odpovídající položku a vrátí ji. Pokud se při
+vytváření databáze narazí na několik položek s&nbsp;přesně stejným jménem,
+ponechá se pouze poslední z&nbsp;nich. Jestliže zadanému klíči odpovídá
+několik položek, porovnávají se po komponentách zleva doprava a vždy se
+ponechají jen položky s&nbsp;největší prioritou. Porovnávání pokračuje, dokud
+nezůstane jediná položka. Pravidla pro priority zajišťují, že konkrétněji
+specifikovaná položka má přednost před obecnou. Položka, která obsahuje
+aktuálně testovanou komponentu (<TT>*topLevel.quit.background</TT>,
+<TT>*topLevel.Command.background</TT> a <TT>*topLevel.?.background</TT>) má
+přednost před položkou, která komponentu přeskakuje pomocí hvězdičky
+(<TT>*topLevel*background</TT>). Položka se jménem instance
+(<TT>*quit.background</TT>) má přednost před položkou obsahující jméno třídy
+(<TT>*Command.background</TT>) a ta má přednost před wildcardem otazník
+(<TT>*?.background</TT>). Položka, před níž je tečka
+(<TT>*box.background</TT>), má přednost před položkou, kterou předchází
+hvězdička (<TT>*box*Background</TT>).
+
+<H2>Window manager</H2>
+
+<P>Window manager je normální X klient, ale má speciální roli &ndash; spravuje
+top-level okna ostatních klientů. Pro tento účel mu Xlib poskytuje několik
+speciálních nástrojů. První je <EM>substructure redirection</EM>. Window
+manager si v&nbsp;masce událostí root okna nastaví
+<TT>SubstructureRedirectMask</TT>. Jestliže jiný klient zkusí namapovat svoje
+top-level okno nebo změnit jeho pozici, velikost, šířku okraje či stacking
+order, tato operace se nepovede a místo toho se window manageru pošle událost
+<TT>CirculateRequest</TT>, <TT>ConfigureRequest</TT>, nebo
+<TT>MapRequest</TT> obsahující popis požadavku klienta. Window manager
+následně požadavek provede nebo zamítne. Některá okna &ndash; např. popup menu
+a tooltipy &ndash; nejsou řízena window managerem. Pro taková okna je třeba
+nastavit atribut <TT>override_redirect</TT>.
+
+<P>Většina window managerů kreslí kolem jednotlivých top-level oken rámečky.
+Pro implementaci těchto rámečků se využívá <EM>reparenting</EM> oken. Když
+window manager dostane událost <TT>MapRequest</TT>, vytvoří rámeček &ndash;
+nové top-level okno, o&nbsp;trochu větší, než je okno aplikace. Původní
+top-level okno aplikace vloží do rámečku, tj. pomocí funkce
+<TT>XReparentWindow</TT> změní jeho rodiče z&nbsp;kořenového okna na rámeček.
+Obě okna pak namapuje. 
+
+<P>Tím, že window manager vytvoří nová rodičovská okna pro top-level okna
+aplikací a občas některá okna odmapuje a místo nich zobrazí ikony, došlo by
+při ukončení window manageru ke zrušení všech takových oken. Proto window
+manager ukládá všechna spravovaná okna do <EM>save-set</EM> voláním
+<TT>XAddToSaveSet</TT>. Při ukončení window manageru X server automaticky všem
+oknům ze save-set změní rodiče zpět na root okno a okna namapuje.
+
+</BODY>
+</HTML>

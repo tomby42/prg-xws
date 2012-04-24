@@ -1,0 +1,237 @@
+<HTML>
+<HEAD>
+<META http-equiv="Content-Type" content="text/html; charset=ISO-8859-2">
+</HEAD>
+
+<BODY>
+<H1>Programování pro X Window System (10)</H1>
+
+<B>Martin Beran</B>
+<EM>&lt;<A href="mailto:beran@ms.mff.cuni.cz">beran@ms.mff.cuni.cz</A>&gt;</EM>
+
+<H2>Knihovna Xlib</H2>
+
+<P>Knihovna Xlib zajišťuje elementární funkce X na straně klienta. Aplikace se
+typicky nepíší pouze s&nbsp;použitím Xlib, protože takové programování je značně
+nepohodlné, jak uvidíme dále. Na rozdíl od toolkitů, Xlib neposkytuje widgety,
+tj. hotové prvky uživatelského rozhraní, které mají vlastní logiku, umí se
+nakreslit a umí samy o&nbsp;sobě komplexně reagovat na události. Např. editační
+řádek v&nbsp;GTK+ nebo Qt po stisku klávesy přidá znak do interní reprezentace
+zobrazeného textu, nakreslí ho na obrazovku a pomocí signálu dá vědět zbytku
+aplikace o&nbsp;změně svého stavu. V&nbsp;Xlib máme k&nbsp;dispozici pouze
+funkce pro vytvoření oken a manipulaci s&nbsp;nimi, pro kreslení a pro příjem
+událostí. Implementace editačního řádku bude vypadat tak, že si aplikace
+vytvoří okno, nahraje font a bude přijímat události. V&nbsp;reakci na
+<TT>Expose</TT> překreslí okno a <TT>KeyPress</TT> způsobí přidání znaku a
+překreslení. Kdybychom chtěli dosáhnout stejné funkčnosti, jakou poskytují
+toolkity, museli bychom se postarat ještě o&nbsp;další věci, jako např.
+cut&amp;paste.
+
+<P>Xlib se příliš nehodí pro aplikační programování. Při psaní aplikace je
+lepší použít vhodný toolkit. Občas však může být nutné volat funkce Xlib pro
+operace, které nemají podporu v&nbsp;toolkitu. Např. historicky první X
+Toolkit neměl vlastní kreslicí operace a pro veškeré kreslení se používaly
+funkce z&nbsp;Xlib. Bez použití knihovny Xlib se samozřejmě neobejdou
+programátoři toolkitů. Ale i pro toho, kdo nikdy funkce Xlib přímo nepoužívá,
+je vhodné znát principy fungování této knihovny, aby pro něj toolkit nebyl jen
+černá skříňka.
+
+<P>Základní náplní práce Xlib je překlad mezi C-čkovým API a zprávami X
+protokolu. X protokol používá streamový soket. Lokálně se komunikuje přes
+unixový soket <TT>/tmp/.X11-unix/X<EM>d</EM></TT>, kde <TT><EM>d</EM></TT> je
+číslo displeje. Pro síťový přístup k&nbsp;X serveru se používá TCP soket na
+portu 6000+<EM>d</EM>. Spojení vždy navazuje klient směrem k&nbsp;serveru.
+Pokud server podporuje Shared Memory Extension a klient i server jsou na
+stejném počítači, je možné komunikaci urychlit tím, že se některá data
+(obrázky) přenáší přes sdílenou paměť.
+
+<P>V X protokolu existují čtyři typy paketů. <EM>Požadavky (requests)</EM>
+posílá klient serveru. Generuje je většina volání Xlib, např. funkce pro
+kreslení čáry, vytvoření okna nebo dotaz na velikost okna. Pokud cílem
+požadavku není získat nějakou hodnotu od X serveru, server na požadavek
+neodpovídá. Požadavky se neposílají jednotlivě, ale ukládají se do bufferu na
+straně klienta. Celý buffer se pošle na server najednou, když je plný. Obsah
+bufferu se také posílá, jestliže program nemá ve frontě žádnou čekající
+událost a zavolá funkci Xlib pro čekání na událost (<TT>XNextEvent</TT>) nebo
+jestliže se volá funkce, která vyžaduje odpověď od serveru. Tím je zajištěno,
+že než klient začne čekat, server např. vytvoří a nakreslí okno, v&nbsp;němž
+chce aplikace přijímat události. Poslední možností je explicitně vynutit
+okamžité odeslání bufferu požadavků funkcemi <TT>XFlush</TT> nebo
+<TT>XSync</TT>. To se hodí např. při vykreslování animací, kdy je nutné
+obnovit obsah okna v&nbsp;určitý čas nezávisle na příchozích událostech.
+Dávková komunikace se serverem se dá vypnout funkcí <TT>XSynchronize</TT>.
+Xlib pak posílá každý požadavek ihned a čeká, zda server nevrátí chybu.
+Synchronní režim není vhodné běžně používat, protože je několikanásobně
+pomalejší. Hodí se však pro ladění, aby klient nedostával chyby asynchronně a
+se zpožděním.
+
+<P>Druhý typ paketů jsou <EM>odpovědi serveru (replies)</EM> na některé
+požadavky klienta, např. na dotaz o&nbsp;vlastnostech okna. Server klientovi
+dále posílá <EM>události (events)</EM> informující o&nbsp;uživatelském vstupu,
+změně rozložení oken, nebo obsahující zprávy od jiného klienta. Poslední typ
+paketů jsou <EM>chyby (errors)</EM>, které informují o&nbsp;tom, že se
+nepovedl některý z&nbsp;předchozích požadavků. Díky dávkovému zpracování
+požadavků to nemusí být ten poslední. Chybu zachytí Xlib a zavolá na ni
+chybový handler, jenž standardně vypíše chybové hlášení a ukončí program.
+
+<P>X server spravuje systémové zdroje poskytované klientům pro použití
+v&nbsp;jejich GUI. Typy zdrojů X serveru jsou: okno (window), pixmapa
+(pixmap), paleta (colormap), kurzor (cursor), font a grafický kontext
+(graphics context). Klienti se na ně odkazují pomocí číselného identifikátoru
+(ID). Tím, že jsou data jako parametry oken, obrázky, znaky z&nbsp;fontu,
+apod. uložena v&nbsp;paměti serveru, redukuje se objem dat přenášených mezi
+klientem a serverem. S&nbsp;libovolným zdrojem X serveru může manipulovat
+každý klient, který zná jeho ID. Program tak může kreslit nebo číst
+události v&nbsp;cizích oknech. Při odpojení klienta od serveru zruší X server
+všechny zdroje vytvořené odpojeným klientem.
+
+<H2>Hello Xlib!</H2>
+
+<P>Pro úvodní seznámení s&nbsp;funkcemi Xlib si jako obvykle předvedeme
+program ve stylu &bdquo;Hello World&ldquo;. Program vytvoří jediné okno a
+v&nbsp;něm nakreslí obdélník a vypíše několik řetězců, viz obr. 1. Po stisku
+klávesy nebo tlačítka myši program skončí. Celý zdrojový text je
+v&nbsp;souboru <A href="hello.c">hello.c</A>. Soubor <A
+href="hello_icon.h">hello_icon.h</A> obsahuje definici ikony. Program
+přeložíme a slinkujeme příkazem
+<PRE>
+gcc -o hello hello.c -I/usr/X11R6/include -L/usr/X11R6/lib -lX11
+</PRE>
+Tato varianta programu &bdquo;Hello World&ldquo; pochází z&nbsp;knihy
+<EM>Adrian Nye: Xlib Programming Manual (O'Reilly and Associates, Inc.,
+1992)</EM>. Poněkud překvapující je délka programu 353 řádek. To je dost
+značný rozdíl oproti programu pro GTK+ z&nbsp;2. dílu (91 řádek) a Qt ze 7.
+dílu (14 řádek). Již toto srovnání cosi napovídá o&nbsp;(ne)vhodnosti Xlib pro
+běžné aplikační programování. Z&nbsp;důvodu velikosti programu ho zde nebudeme
+podrobně rozebírat řádek po řádku. 
+
+<DIV align="center">
+<P><IMG alt="Hello World" src="hello.png">
+<P>Obr. 1: Hello World v&nbsp;Xlib
+</DIV>
+
+<P>Ve funkci <TT>main</TT> se klient nejprve připojí k&nbsp;X serveru voláním
+<TT>XOpenDisplay</TT>. Po úspěšném navázání spojení vytvoří okno pomocí
+<TT>XCreateSimpleWindow</TT>. K&nbsp;oknu přísluší ikona vytvořená funkcí
+<TT>XCreateBitmapFromData</TT>. Dále je třeba sdělit window manageru (pomocí
+<TT>XSetWMProperties</TT>) některé informace o&nbsp;oknu, např. titulek okna a
+ikony, odkaz na pixmapu ikony a minimální velikost okna. Před zahájením
+zpracování událostí je nutné říct X serveru, které události má klientovi
+posílat &ndash; <TT>XSelectInput</TT>. Před zahájením kreslení je třeba načíst
+font funkcí <TT>XLoadQueryFont</TT>, vytvořit grafický kontext funkcí
+<TT>XCreateGC</TT> a nastavit jeho parametry: <TT>XSetFont</TT>,
+<TT>XSetForeground</TT>, <TT>XSetLineAttributes</TT> a <TT>XSetDashes</TT>.
+Následuje namapování (zobrazení) okna pomocí <TT>XMapWindow</TT>. Tím je
+dokončena inicializace programu a může být zahájen cyklus zpracování událostí.
+
+<P>Program vždy počká na událost a přečte ji voláním <TT>XNextEvent</TT>. Pak
+se rozhodne podle typu události (<TT>event.type</TT>). Událost <TT>Expose</TT>
+je obsloužena nakreslením obsahu okna s&nbsp;využitím funkcí <TT>XDrawString</TT> a
+<TT>XDrawRectangle</TT>. Událost <TT>ConfigureNotify</TT> informuje o&nbsp;změně
+velikosti okna a program na ni reaguje přepočítáním umístění grafiky v&nbsp;okně a
+překreslením. Stisk klávesy (<TT>KeyPress</TT>) nebo tlačítka myši
+(<TT>ButtonPress</TT>) způsobí ukončení programu. Před ukončením se uvolní
+alokované zdroje X serveru (<TT>XUnloadFont</TT>, <TT>XFreeGC</TT>) a klient
+zavře spojení se serverem (<TT>XCloseDisplay</TT>). Tyto úklidové akce nejsou
+nezbytné, protože ukončení procesu způsobí zavření soketu, které server
+detekuje a uvolní veškeré zdroje alokované klientem. Nicméně je vhodné volat
+alespoň <TT>XCloseDisplay</TT>, aby klient dostal případné chyby, které mu
+server zatím neposlal.
+
+<H2>Okna</H2>
+
+<P>Okno je obdélníková oblast na obrazovce, ve které lze kreslit a přijímat
+události. Pokud server a Xlib podporují rozšíření Shape, je možné vytvářet
+okna libovolných tvarů. Na každé obrazovce tvoří okna stromovou strukturu.
+Kořen stromu je kořenové (root) okno, existující po celou dobu běhu X serveru.
+Do root okna lze kreslit a lze v&nbsp;něm přijímat události, ale není možné změnit
+jeho velikost nebo pozici. Kromě vztahů předků a potomků (ancestors,
+descendants) je ve stromě oken mezi sourozenci (synovskými okny stejného
+rodiče) definován tzv. stacking order určující, jak se tito sourozenci
+navzájem zakrývají. Vztahy ve stromě oken jsou znázorněny na obr. 2.
+
+<DIV align="center">
+<P><IMG alt="strom oken" src="strom.png">
+<P>Obr. 2: Strom oken a stacking order
+</DIV>
+
+<P>Souřadnice uvnitř okna se počítají od levého horního rohu doprava a dolů.
+Pozice okna se zadává relativně vůči rodiči. Okno může mít navíc okraj
+(rámeček). Počátek souřadnic okna je v&nbsp;takovém případě uvnitř rámečku, avšak
+pozice se vztahuje k&nbsp;bodu vně rámečku. Okraje oken se ale moc nepoužívají. Na
+obr. 3 jsou zobrazeny jednotlivé rozměry tvořící geometrii oken.
+
+<DIV align="center">
+<P><IMG alt="geometrie oken" src="geometrie.png">
+<P>Obr. 3: Geometrie oken
+</DIV>
+
+<P>Po vytvoření existuje okno pouze jako datová struktura v&nbsp;paměti X serveru.
+Aby bylo vidět na obrazovce, je nutné ho namapovat funkcí <TT>XMapWindow</TT>
+a musí být namapování také všichni jeho předci. Ani namapované okno nemusí být
+vidět, pokud leží mimo plochu svého rodiče nebo je zakryto svými sourozenci 
+nebo sourozenci předků. Okno se typicky neobjeví hned po zavolání
+<TT>XMapWindow</TT>, protože díky dávkové komunikaci se serverem může
+požadavek nějakou dobu čekat v&nbsp;bufferu klienta. U&nbsp;top-level oken navíc do
+mapování vstupuje window manager. 
+
+<P>Každé okno má sadu charakteristik, zadávaných při vytvoření okna voláním
+<TT>XCreateWindow</TT> nebo <TT>XCreateSimpleWindow</TT>. Později je lze
+zjišťovat a některé i měnit pomocí funkcí Xlib (<TT>XReparentWindow</TT>,
+<TT>XGetGeometry</TT>, <TT>XGetWindowAttributes</TT>,
+<TT>XChangeWindowAttributes</TT>, atd.). Umístění ve stromě oken a na
+obrazovce určují <EM>rodičovské okno</EM> a <EM>konfigurace okna</EM> (pozice,
+šířka, výška, šířka okraje a pozice v&nbsp;rámci stacking order). <EM>Visual</EM>
+definuje způsob přepočtu hodnot jednotlivých pixelů na barvy podle barevné
+palety. Počet bitů použitých na každý pixel udává <EM>bitová hloubka</EM>.
+Okno má <EM>třídu</EM>, která může být <TT>InputOutput</TT> (do okna lze
+kreslit a lze v&nbsp;něm přijímat události), nebo <TT>InputOnly</TT> (v&nbsp;okně lze
+přijímat události, ale nelze do něj kreslit a okno není vidět).
+<TT>InputOnly</TT> se hodí, pokud potřebujeme speciální obsluhu událostí nebo
+jiný tvar kurzoru v&nbsp;určité oblasti okna. Zde je třeba zmínit, že neexistují
+žádná OutputOnly okna, protože okno s&nbsp;libovolným grafickým obsahem musí
+reagovat na požadavky serveru o&nbsp;překreslení, zasílané klientovi ve formě
+událostí <TT>Expose</TT>. Poslední z&nbsp;charakteristik okna jsou
+<EM>atributy</EM>.
+
+<P>Atributů okna je celá řada. Dá se nastavit <EM>barva pozadí</EM> okna, nebo
+lze alternativně na pozadí umístit pixmapu. Pokud má okno okraj, dá se
+nastavovat i jeho barva či pixmapa. Hodnota <EM>bit gravity</EM> určuje, co se
+stane s&nbsp;obsahem okna při změně velikosti. Standardní hodnota je
+<TT>ForgetGravity</TT>, tj. okno se smaže a musí se překreslit. Další možnosti
+jsou znázorněny na obr. 4. Původní obsah se zachová a přesune se relativně
+vůči počátku okna. Pro nepokryté oblasti X server vygeneruje události
+<TT>Expose</TT> a tím zajistí jejich vykreslení. Server nemusí bit gravity
+implementovat a může vždy obsah okna celý smazat a nechat překreslit.
+<EM>Window gravity</EM> říká, co se má při změně velikosti stát se synovskými
+okny. Standardní je <TT>NorthWestGravity</TT>, tj. relativní poloha vůči
+počátku okna se nemění. Další možnosti jsou <TT>UnmapGravity</TT> (synovská
+okna se odmapují), <TT>StaticGravity</TT> (nemění se poloha vzhledem ke
+kořenovému oknu) a hodnoty z&nbsp;obr. 4. Hodnota <EM>backing store</EM> říká,
+zda si má X server pamatovat obsah okna, pokud je překryto jiným oknem. Po
+odkrytí pak může okno obnovit bez toho, aby posílal událost <TT>Expose</TT>
+klientovi. Duální funkci má atribut <EM>save under</EM>, který určuje, zda si
+má X server pamatovat obsah okna překrytého oknem s&nbsp;nastaveným save
+under. To se hodí pro okna, která jsou na obrazovce zobrazena jen krátce, jako
+např. popup menu. Server nemusí backing store ani save under podporovat.
+V&nbsp;každém okně si může klient nastavit masku událostí, které chce
+v&nbsp;tomto okně přijímat. Maska je samostatná pro každé okno a klienta, tudíž
+různí klienti mohou ve stejném okně přijímat různé množiny událostí. Jestliže
+má jednu událost vybranou více klientů, každý z&nbsp;nich dostane její kopii.
+Události z&nbsp;myši a klávesnice, jež nejsou obslouženy v&nbsp;okně, ve
+kterém vznikly, se propagují směrem ke kořeni. Propagace se zastaví, pokud
+některé okno na cestě událost přijme, nebo událost dorazí do kořenového okna
+nebo do okna, ve kterém je její propagace zakázána atributem
+<EM>do_not_propagate_mask</EM>. Zobrazování a manipulace s&nbsp;top-level okny
+je obvykle řízena window managerem. Některá okna &ndash; popup menu, tooltipy,
+apod. &ndash; se potřebují vyhnout interakci s&nbsp;window managerem, což
+zařídí atribut <EM>override_redirect</EM>. Zbývající atributy okna jsou
+<EM>barevná paleta</EM> a <EM>tvar kurzoru</EM>.
+
+<DIV align="center">
+<P><IMG alt="gravity" src="gravity.png">
+<P>Obr. 4: Bit a window ravity
+</DIV>
+
+</BODY>
+</HTML>

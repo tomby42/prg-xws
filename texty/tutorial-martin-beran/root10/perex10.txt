@@ -1,0 +1,4 @@
+Po seznámení s toolkity GTK+ a Qt v pøedchozích èláncích se nyní ponoøíme do
+hlub¹ích vrstev systému X Window. Podíváme se na knihovnu Xlib, je¾ zaji¹»uje
+komunikaci X klienta se serverem pomocí X protokolu a poskytuje základní 
+funkce potøebné pro vytvoøení grafického u¾ivatelského rozhraní.

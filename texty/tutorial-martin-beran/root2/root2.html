@@ -1,0 +1,280 @@
+<HTML>
+<HEAD>
+<META http-equiv="Content-Type" content="text/html; charset=ISO-8859-2">
+</HEAD>
+
+<BODY>
+<H1>Programování pro X Window System (2)</H1>
+
+<B>Martin Beran</B>
+<EM>&lt;<A href="mailto:beran@ms.mff.cuni.cz">beran@ms.mff.cuni.cz</A>&gt;</EM>
+
+<H2>GTK+</H2>
+
+<P>Po minulém úvodním článku se teď už opravdu pustíme do programování. První
+toolkit, na který se podíváme blíž, je GTK+. Zkratka pochází z&nbsp;názvu
+&bdquo;The Gimp Toolkit&ldquo;. GTK+ totiž původně vzniklo jako toolkit pro
+program Gimp. Dnes je na tomto toolkitu postaveno mnoho aplikací a tvoří
+základ desktopového prostředí GNOME. Budeme se zabývat současnou stabilní
+verzí GTK+ 2.2. Proti předchozí široce používané verzi 1.2 obsahuje GTK+ 2
+hodně vylepšení, např. lepší widgety pro seznamy, stromy, zobrazení a editaci
+textu. Také se zlepšila kvalita dokumentace, nicméně stále zůstávají
+nedokumentované funkce. Pro pochopení detailů je často nutné kombinovat
+referenční dokumentaci, tutoriály, ukázkové programy a zdrojové texty
+toolkitu.
+
+<P>Toolkit GTK+ je napsaný v&nbsp;jazyce C. Protože je objektově orientovaný,
+bylo potřeba v&nbsp;C implementovat prostředky pro manipulaci s&nbsp;objekty,
+které jsou v&nbsp;jazycích jako C++ součástí jazyka. Třídy jsou definované
+jako struktury, odvozená třída obsahuje strukturu bázové třídy jako svou první
+položku. Virtuální metody jsou realizované pomocí signálů. Zde je třeba
+odlišit unixové signály (asynchronní) a signály GTK+, které poskytují
+mechanismus pro synchronní volání registrovaných handlerů. Pro GTK+ existují i
+API (language bindings) pro jiné jazyky, než C. Podporované jsou Ada, C++,
+Perl, Python, aj. V&nbsp;C++ lze použít buď C-čkové rozhraní, nebo knihovnu
+gtkmm (dříve GTK--). Jednotlivé třídy GTK+ jsou v&nbsp;gtkmm
+&bdquo;obaleny&ldquo; třídami jazyka C++. Grafické rozhraní programu se
+definuje buď přímo v&nbsp;kódu programu posloupností volání funkcí na
+vytvoření jednotlivých widgetů, nebo lze použít nástroj Glade pro vizuální
+interaktivní návrh vzhledu aplikace. Programátor myší umísťuje jednotlivé
+widgety na obrazovku a nastavuje jejich parametry. Glade následně vygeneruje
+kostru aplikace obsahující kód na vytvoření widgetů. Do této kostry je pak
+nutné doplnit zbytek programu, především těla handlerů signálů.
+
+<P>Než se pustíme do programování, musíme si ještě ujasnit několik základních
+pojmů. <EM>Widget</EM> je prvek uživatelského rozhraní (např. check box nebo
+editační textový řádek). V&nbsp;programu je reprezentovaný objektem třídy
+odvozené od <TT>GtkWidget</TT>. <EM>Objekt</EM> je instance třídy
+<TT>GObject</TT> nebo odvozené třídy. Widget je také objekt, protože
+<TT>GtkWidget</TT> je potomkem <TT>GObject</TT>. <EM>Okno</EM> ve smyslu GTK+
+je top-level okno programu (hlavní okno nebo dialog). Pomocná knihovna GDK,
+která tvoří rozhraní mezi GTK+ a Xlib, používá termín okno pro strukturu
+reprezentující X okno spravované X serverem. GDK okna existují
+v&nbsp;klientovi. Naopak X okno je zdroj poskytovaný X serverem, klient si
+drží pouze jeho ID (číselný identifikátor). Je to obdélníková oblast
+obrazovky, do které může klient kreslit. Když X server pošle událost, je její
+součástí informace o&nbsp;tom, v&nbsp;kterém okně nastala. Aby byl widget
+vidět na obrazovce, potřebuje X okno, do něhož bude kreslit. Typicky má jeden
+widget jedno GDK a tedy i jedno X okno. Korespondence 1:1 ale není nutná.
+Widget může používat několik X oken. Naopak widgety, které nepotřebují
+přijímat události &ndash; např. statický text &ndash; nemají vlastní X okno.
+Pro kreslení používají X okno rodičovského widgetu.
+
+<P>X server posílá klientovi informace o&nbsp;aktivitě uživatele ve formě
+<EM>událostí</EM>. Události se zpracovávají asynchronně. Příchozí událost je
+uložena do fronty. Když na ni někdy později přijde řada, hlavní cyklus
+zpracování událostí ve funkci <TT>gtk_main</TT> ji vyzvedne a zpracuje.
+Widgety komunikují pomocí <EM>signálů</EM>. Když se s&nbsp;widgetem stane něco
+důležitého, na co je potřeba reagovat (např. uživatel vybere položku menu),
+widget emituje signál voláním <TT>g_signal_emit_by_name</TT>. Následně jsou
+postupně zavolány všechny handlery registrované pro danou dvojici zdrojový
+widget, typ signálu. Signály se zpracovávají synchronně &ndash; funkce
+emitující signál zavolá všechny příslušné handlery a teprve pak se vrátí.
+Události jsou funkcí <TT>gtk_main</TT> přeloženy na signály a následně
+obslouženy. Handlery signálů dostávají jako parametr widget, který signál
+emitoval, a ukazatel nastavený při registraci handleru funkcí
+<TT>g_signal_connect</TT>. Některé typy signálů používají další parametry.
+Například handler událostí dostává strukturu popisující událost. Handlery
+mohou mít i návratovou hodnotu. Handlery událostí vrací boolovskou hodnotu.
+TRUE znamená, že událost byla obsloužena a není třeba volat další handlery.
+Když handler vrátí FALSE, událost se předá dalšímu handleru v&nbsp;pořadí. GTK+
+nekontroluje, zda má handler správné typy parametrů a návratové hodnoty.
+Pokud programátor použije špatný typ handleru, obvykle to skončí havárií
+programu.
+
+<H2>Hello World!</H2>
+
+<P>Při výkladu nového programovacího jazyka nebo nástroje se obvykle začíná
+triviálním programem ve stylu &bdquo;hello world&ldquo;. Ani my neuděláme
+výjimku. Celý zdrojový kód programu je v&nbsp;souboru <A
+href="hello.c">hello.c</A>. Program otevře okno s&nbsp;tlačítkem a po
+stisknutí tlačítka skončí.
+
+<P>Na začátku je potřeba načíst hlavní hlavičkový soubor GTK+. Ten zajistí
+načtení všech dalších potřebných hlavičkových souborů GTK+ a podpůrných
+knihoven.
+<PRE>
+#include &lt;gtk/gtk.h&gt;
+</PRE>
+Funkce <TT>main</TT> musí na začátku inicializovat toolkit
+pomocí
+<PRE>
+gtk_init(&amp;argc, &amp;argv);
+</PRE>
+Této funkci se předávají parametry z&nbsp;příkazového řádku. GTK+ odebere
+parametry, které zná, např. <TT>--display</TT> (jméno X serveru, ke kterému se
+má připojit), <TT>--no-xshm</TT> (nebude se používat sdílená paměť pro
+komunikaci s&nbsp;lokálním X serverem), nebo <TT>--sync</TT> (synchronní
+komunikace s&nbsp;X serverem používaná pro ladění). Funkce <TT>gtk_init</TT>
+inicializuje objektový systém GTK+ a musí se volat jako první funkce toolkitu.
+
+<P>Následuje vytvoření top-level okna
+<PRE>
+window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+</PRE>
+Parametr <TT>GTK_WINDOW_TOPLEVEL</TT> znamená, že okno dostane rámeček a bude
+spravováno window managerem. 
+Hlavní okno bude mít připojené dva handlery signálů.
+<PRE>
+g_signal_connect(G_OBJECT(window), "delete_event",
+                 G_CALLBACK(delete_event), NULL);
+g_signal_connect(G_OBJECT(window), "destroy",
+                 G_CALLBACK(destroy), NULL);
+</PRE>
+Při registraci handlerů se zadává dvojice objekt a jméno signálu, pro kterou
+se handler registruje. Následuje handler a hodnota, předávaná handleru jako
+poslední parametr. Handler dostane ukazatel na objekt jako první parametr. Za
+ukazatelem na objekt mohou ještě následovat parametry specifické pro určitý
+signál. Ve volání <TT>g_signal_connect</TT> se objevuje charakteristický rys
+GTK+ &ndash; volání přetypovacích maker. Makro <TT>G_OBJECT</TT> přetypuje
+parametr na <TT>GObject</TT>. Pro každou třídu existuje makro, které dostane
+ukazatel, zkontroluje, zda lze přetypovat a vrátí přetypovaný ukazatel nebo
+vypíše chybové hlášení. Takto se většinou přetypovává nějaký objekt na objekt
+předka, což se v&nbsp;C++ děje automaticky. C nezná hierarchii dědičnosti a
+odvozená třída, i když obsahuje objekt zděděné třídy na začátku struktury, je
+pro překladač jiný typ a přetypování je nutné explicitně napsat.
+
+<P>Událost <TT>delete_event</TT> vygeneruje window manager, když uživatel
+stiskne zavírací tlačítko na rámečku okna. Obvyklá reakce na tuto událost je
+taková, že se program zeptá uživatele, zda chce skončit a popřípadě uložit na
+disk neuložená data. Když uživatel potvrdí ukončení programu, handler vrátí
+<TT>FALSE</TT> a tím umožní pokračování zpracování události. Když nejsou
+připojené další handlery, vyvolá se standardní obsluha, která zruší top-level
+okno. Jestliže se uživatel rozhodne, že se program nemá ukončit, handler vrátí
+<TT>TRUE</TT>, událost je tím obsloužena a další handlery se nevolají. Handler
+našeho &bdquo;hello world&ldquo; pouze vypíše hlášení na standardní výstup a
+nechá program pokračovat.
+<PRE>
+static gint delete_event(GtkWidget *widget, GdkEvent *event, gpointer data)
+{
+    g_print("delete event occurred\n");
+    return TRUE;
+}
+</PRE>
+
+<P>Widget generuje signál <TT>destroy</TT> při svém zrušení. Když je zavřeno
+hlavní okno aplikace, je potřeba přerušit zpracování událostí. Jinak by sice
+program zmizel z&nbsp;obrazovky, ale běžel by dál. O&nbsp;ukončení se postará
+handler
+<PRE>
+static void destroy(GtkWidget *widget, gpointer data)
+{
+    gtk_main_quit();
+}
+</PRE>
+
+<P>V dalším kroku vytvoříme tlačítko s&nbsp;nápisem &bdquo;Hello World&ldquo; a
+vložíme ho do okna.
+<PRE>
+button = gtk_button_new_with_label("Hello World");
+g_signal_connect_swapped(G_OBJECT(button), "clicked",
+                         G_CALLBACK(gtk_widget_destroy), G_OBJECT(window));
+gtk_container_add(GTK_CONTAINER(window), button);
+</PRE>
+Když uživatel stiskne tlačítko, ať už s&nbsp;použitím klávesnice nebo myši, je
+vygenerován signál <TT>clicked</TT>. Jako handler jsme nastavili funkci
+<TT>gtk_widget_destroy</TT>, která zruší widget zadaný jako parametr. Protože
+chceme zrušit celé okno a ne jenom tlačítko, voláme
+<TT>g_signal_connect_swapped</TT>. Tato funkce funguje podobně jako
+<TT>g_signal_connect</TT>, ale závěrečný parametr se předává handleru jako
+první a ukazatel na objekt, který emitoval signál, jako poslední parametr.
+O&nbsp;parametry funkce se v&nbsp;C stará volající, proto nevadí, že handler má jen jeden
+parametr a při volání dostane dva. Důležité je, že souhlasí typ prvního
+parametru. Podobně bychom nemuseli definovat handler <TT>destroy</TT> a místo
+něj bychom připojili přímo funkci <TT>gtk_main_quit</TT>.
+
+<P>Každý widget musíme zobrazit, jinak by sice existoval jako objekt
+v&nbsp;programu, ale nebyl by vidět na obrazovce.
+<PRE>
+gtk_widget_show(button);
+gtk_widget_show(window);
+</PRE>
+Místo volání <TT>gtk_widget_show</TT> pro každý widget můžeme zobrazit widget
+a všechny v&nbsp;něm obsažené widgety funkcí <TT>gtk_widget_show_all</TT>.
+Předchozí dva řádky bychom mohli změnit na
+<PRE>
+gtk_widget_show_all(window);
+</PRE>
+Nakonec spustíme zpracování událostí
+<PRE>
+gtk_main();
+</PRE>
+Když je tato funkce ukončena pomocí <TT>gtk_main_quit</TT> v&nbsp;handleru 
+<TT>destroy</TT> volaném při zavření okna, ukončíme program návratem
+z&nbsp;funkce <TT>main</TT>.
+
+<H2>Překlad a linkování programu</H2>
+
+<P>Náš první program v&nbsp;GTK+ přeložíme příkazem
+<PRE>
+gcc -o hello `pkg-config --cflags --libs gtk+-2.0` hello.c
+</PRE>
+Utilita <TT>pkg-config</TT> se postará o&nbsp;správné nastavení kompilátoru a
+linkeru. Když se zavolá s&nbsp;přepínačem <TT>--cflags</TT>, vrátí seznam cest,
+kde jsou hlavičkové soubory pro GTK+ nebo pro jinou knihovnu, jejíž jméno je
+zadané jako poslední parametr. Verze GTK+ 2.2 opravuje chyby předchozí verze
+2.0 a jinak je s&nbsp;ní kompatibilní, proto v&nbsp;<TT>pkg-config</TT> obě
+verze používají název <TT>gtk+-2.0</TT>. Seznam cest se vypisuje ve tvaru
+direktiv kompilátoru <TT>-I</TT><EM>adresář</EM>. Přepínač <TT>--libs</TT>
+způsobí vypsání seznamu potřebných knihoven a adresářů, kde jsou knihovny
+uloženy (direktivy <TT>-L</TT><EM>adresář</EM> a
+<TT>-l</TT><EM>knihovna</EM>).
+
+<P>Pro řízení překladu větších programů složených z&nbsp;více zdrojových
+modulů se obvykle používá utilita <TT>make</TT>. Úsek <TT>Makefile</TT> pro
+náš první program v&nbsp;GTK+ by vypadal nějak takto:
+<PRE>
+CC=gcc
+CFLAGS=`pkg-config --cflags gtk+-2.0`
+LIBS=`pkg-config --libs gtk+-2.0`
+
+hello: hello.o
+	$(CC) -o hello $(LIBS) hello.o
+
+hello.o: hello.c
+	$(CC) $(CFLAGS) -c hello.c
+</PRE>
+
+<H2>Knihovny používané v&nbsp;GTK+</H2>
+
+<P>Na obr. 1 jsou schematicky znázorněny vztahy mezi hlavními knihovnami.
+
+<DIV align="center">
+<P><IMG alt="knihovny" src="knihovny.png">
+<P>Obr. 1: Knihovny v&nbsp;GTK+
+</DIV>
+
+<P>Nad základní klientskou knihovnou Xlib leží vrstva GDK (GTK Drawing Kit).
+Takto knihovna obaluje volání Xlib a má dvě hlavní funkce. Za prvé poněkud
+zjednodušuje komplikované API Xlib a za druhé usnadňuje přenositelnost na jiné
+grafické systémy než X (např. MS Windows nebo linuxový frame buffer), protože
+se mění pouze implementace funkcí GDK a nikoliv API. Proto mohou vyšší vrstvy
+toolkitu zůstat téměř nezměněné. Další vrstvu tvoří vlastní toolkit GTK+.
+Skládá se z&nbsp;implementace objektového systému, podpory zpracování událostí
+a signálů a tříd pro jednotlivé widgety. Aplikace volá funkce z&nbsp;GTK+.
+Pokud potřebuje přímo kreslit vlastní grafiku, definovat nové třídy widgetů
+nebo provádět speciální operace s&nbsp;okny, může volat i GDK. Mezi knihovnami
+GTK+ a GDK leží ještě theme engine. Je v&nbsp;ní definován vzhled jednotlivých
+widgetů. Implementace widgetů v&nbsp;GTK+ nevolají přímo funkce pro kreslení
+grafických primitiv (např. čar nebo obdélníků) z&nbsp;GDK. Místo toho volají
+funkce z&nbsp;theme, které kreslí složitější objekty, např. celé tlačítko.
+Theme engine překládá tyto komplexní kreslicí operace do série grafických
+primitiv. Výměnou této knihovny &ndash; i za běhu programu &ndash; lze měnit
+celkový vzhled uživatelského rozhraní.
+
+<P>Balík GTK+ obsahuje tyto hlavní knihovny:
+<UL>
+<LI><B>GLib</B> (<TT>-lglib-2.0</TT>) ... pomocné funkce a datové struktury
+<LI><B>GDK</B> (<TT>-lgdk-x11-2.0</TT>) ... wrapper funkcí Xlib, popř. jiného
+grafického systému
+<LI><B>GObject</B> (<TT>-lgobject-2.0</TT>) ... generický typový a objektový
+systém, signály
+<LI><B>GTK+</B> (<TT>-lgtk-x11-2.0</TT>) ... jádro toolkitu GTK+ a definice
+widgetů
+<LI><B>Pango</B> (<TT>-lpango-1.0</TT>) ... zobrazování textu
+<LI><B>ATK</B> (<TT>-latk-1.0</TT>) ... Accessibility Toolkit, zpřístupnění
+aplikací v&nbsp;GTK+ pro tělesně postižené uživatele
+</UL>
+
+</BODY>
+</HTML>

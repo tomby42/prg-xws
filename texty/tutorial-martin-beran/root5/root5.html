@@ -1,0 +1,232 @@
+<HTML>
+<HEAD>
+<META http-equiv="Content-Type" content="text/html; charset=ISO-8859-2">
+</HEAD>
+
+<BODY>
+<H1>Programování pro X Window System (5)</H1>
+
+<B>Martin Beran</B>
+<EM>&lt;<A href="mailto:beran@ms.mff.cuni.cz">beran@ms.mff.cuni.cz</A>&gt;</EM>
+
+<H2>Knihovna GLib</H2>
+
+<P>Knihovna GLib obsahuje různé užitečné funkce a datové struktury. Není
+svázána s&nbsp;toolkitem GTK+, dá se používat i samostatně. GLib poskytuje náhradu
+pro některé standardní typy jazyka C, definuje např. <TT>gchar</TT>,
+<TT>gint</TT>, <TT>gpointer</TT>, <TT>guint16</TT>... Součástí GLib jsou i
+redefinice standardních knihovních funkcí, jako jsou funkce pro manipulaci
+s&nbsp;nulou ukončenými řetězci ve stylu jazyka C (<TT>g_snprintf</TT>,
+<TT>g_strcasecmp</TT>, <TT>g_strdup</TT>, atd.). Důvodem existence této části
+GLib je snaha o&nbsp;přenositelnost. V&nbsp;moderních unixových systémech už obvykle
+knihovny obsahují vše, co by podle standardů obsahovat měly, a definice toho
+samého pod jiným jménem se může zdát nadbytečná. Nicméně v&nbsp;době, kdy GLib a
+GTK+ začaly vznikat, nebyly systémové knihovny na různých verzích Unixu
+dostatečně kompatibilní. Knihovna GLib navíc funguje i na jiných platformách,
+jako MS Windows.
+
+<P>Druhá část GLib obsahuje pomocné funkce a makra. Jsou zde makra pro
+přetypování mezi čísly a ukazateli (<TT>GINT_TO_POINTER</TT>,
+<TT>GPOINTER_TO_INT</TT>). Ladění programů usnadňují makra
+<TT>g_return_if_fail</TT> (pro funkce s&nbsp;návratovým typem <TT>void</TT>) a
+<TT>g_return_val_if_fail</TT> (pro funkce vracející hodnotu). Jejich typické
+použití je kontrola parametrů při vstupu do funkce. Pokud není splněná
+podmínka zadaná jako parametr makra, vypíše se chybové hlášení a provede se
+návrat z&nbsp;aktuální funkce. Další ladicí makra jsou <TT>g_assert</TT> a
+<TT>g_assert_not_reached</TT>. GLib má vlastní funkce pro alokace paměti,
+které ukončí běh programu, pokud nelze alokaci provést: <TT>g_malloc</TT> je
+obdoba standardní funkce <TT>malloc</TT> a <TT>g_malloc0</TT> navíc
+naalokovanou paměť vynuluje (jako <TT>calloc</TT>). Pro dealokaci slouží
+funkce <TT>g_free</TT>.
+
+<P>Ve třetí části knihovny GLib jsou definovány datové struktury podobné STL
+kontejnerům v&nbsp;C++. K&nbsp;dispozici jsou řetězce <TT>GString</TT>, které
+automaticky zvětšují datový buffer při prodlužování řetězce, jednosměrné
+(<TT>GSList</TT>) a obousměrné (<TT>GList</TT>) spojové seznamy, vyvážené
+binární stromy (<TT>GTree</TT>), n-ární stromy (<TT>GNode</TT>), hašovací
+tabulky (<TT>GHashTable</TT>), automaticky se zvětšující pole
+(<TT>GArray</TT>), aj.
+
+<P>Poslední skupina typů a funkcí v&nbsp;GLib poskytuje prostředky, nad kterými
+je postavena infrastruktura toolkitu GTK+. Struktura <TT>GHookList</TT>
+reprezentuje seznam callback funkcí. V&nbsp;GTK+ se používá v&nbsp;mechanismu registrace
+a volání handlerů signálů. Z&nbsp;generického cyklu pro zpracování událostí je
+odvozena funkce <TT>gtk_main</TT>. Lexikální analyzátor se používá při
+zpracování resource souborů definujících styly widgetů.
+
+<H2>Timeouty, I/O</H2>
+
+<P>Zatím jsme uvažovali grafické aplikace, které komunikují pouze
+s&nbsp;uživatelem. Program čeká v&nbsp;<TT>gtk_main</TT> na událost od X
+serveru, zpracuje ji a vrátí se zpět do <TT>gtk_main</TT>. Když není žádná
+událost k&nbsp;dispozici, program nic nedělá. Takový model ale není vždy
+postačující. Někdy je potřeba provádět určité akce periodicky. Např. při
+zobrazování animace se v&nbsp;pravidelných intervalech překresluje obsah
+widgetu. Pomocí <TT>gtk_timeout_add</TT> lze zaregistrovat funkci, která bude
+volána po uplynutí zadaného počtu milisekund. Když funkce vrátí <TT>TRUE</TT>,
+bude se volat znovu za stejnou dobu. Návratová hodnota <TT>FALSE</TT> nebo
+volání <TT>gtk_timeout_remove</TT> funkci odregistruje, takže se už nebude
+provádět. Někdy potřebujeme určitou funkci volat tak často, jak je to možné,
+např. pokud každé zavolání provede část nějakého dlouhotrvajícího výpočtu.
+K&nbsp;tomuto účelu se dají využít funkce <TT>gtk_idle_add</TT> a
+<TT>gtk_idle_remove</TT>, které fungují podobně jako timeouty, ale
+registrovaná funkce se bude volat vždy, když ve frontě nečeká na zpracování
+žádná událost.
+
+<P>Pokud program potřebuje číst nebo zapisovat do souboru, zařízení nebo
+soketu, je potřeba zajistit správné kódování dat a nezablokovat uživatelské
+rozhraní při čekání na data. Oba problémy v&nbsp;GTK+, resp. GLib, řeší I/O
+kanály (typ <TT>GIOChannel</TT>). Když máme otevřený deskriptor, voláním
+funkce <TT>g_io_channel_unix_new</TT> k&nbsp;němu vytvoříme kanál. Pomocí
+<TT>g_io_channel_set_encoding</TT> se dá nastavit kódování dat v&nbsp;kanálu.
+Implicitně se používá UTF-8. Jestliže nechceme, aby kanál do dat jakkoliv
+zasahoval, nastavíme kódování na <TT>NULL</TT>. I/O kanály používají počítání
+referencí. Kanál se zruší, když <TT>g_io_channel_unref</TT> sníží počet
+referencí na nulu. Volání <TT>g_io_add_watch</TT> zaregistruje pro zadaný
+kanál handler, který se bude volat, když na kanálu nastane požadovaná událost:
+je k&nbsp;dispozici aspoň 1 bajt dat ke čtení (<TT>G_IO_IN</TT>) nebo lze
+aspoň 1 bajt zapsat (<TT>G_IO_OUT</TT>). Čekání na kanálech je součástí
+<TT>gtk_main</TT>, takže neblokuje fungování uživatelského rozhraní.
+
+<H2>Konfigurace vzhledu widgetů</H2>
+
+<P>Styl, jakým se zobrazují widgety, lze konfigurovat pomocí textových
+<EM>resource souborů</EM>. V&nbsp;rámci stylu je definován font používaný widgetem,
+barvy pozadí a popředí, případně pixmapa na pozadí. V&nbsp;resource souboru se dají
+také přiřazovat signály ke klávesám a tak nastavit, že stisk určité klávesy
+vyvolá nějakou funkci v&nbsp;programu. Funkce <TT>gtk_init</TT> načítá soubory
+<TT>SYSCONFDIR/gtk-2.0/gtkrc</TT> (kde <TT>SYSCONFDIR</TT> je adresář
+nastavený při instalaci toolkitu) a <TT>$HOME/.gtkrc-2.0</TT>. Navíc čte ještě
+soubor specifický pro aktuální locale, např. <TT>$HOME/.gtkrc-2.0.cs_CZ</TT>.
+Další resource soubory je možné načíst voláním funkce <TT>gtk_rc_parse</TT>.
+
+<P>V resource souboru jsou oddělené definice stylů a mapování kláves od jejich
+přiřazení jednotlivým widgetům. Definice stylu může vypadat takto:
+<PRE>
+style "my-menu"
+{
+  font="-*-arial-medium-r-*-*-*-120-*-*-p-*-iso8859-2"
+  bg[PRELIGHT] = { 0.0, 0.0, 0.6 }
+  fg[PRELIGHT] = { 1.0, 1.0, 1.0 }
+}
+</PRE>
+Každý styl má své jméno. Font se nastavuje buď pomocí <TT>font</TT> a
+<TT>fontset</TT> (X-ová jména fontů), nebo pomocí <TT>font_name</TT> (jména
+fontů ve tvaru pro knihovnu Pango). Tato poslední varianta má nejvyšší
+prioritu. Barvy se definují samostatně pro různé stavy widgetu:
+<UL>
+<LI><TT>NORMAL</TT> ... normální stav widgetu
+<LI><TT>ACTIVE</TT> ... aktivovaný widget, např. kliknutím myši
+<LI><TT>PRELIGHT</TT> ... tlačítko nebo položka menu, na které je kurzor myši
+<LI><TT>SELECTED</TT> ... vybrané položky v&nbsp;seznamu, označený text v&nbsp;editačním
+řádku, apod.
+<LI><TT>INSENSITIVE</TT> ... widgety, které mají vypnutou interakci
+s&nbsp;uživatelem
+</UL>
+
+<P>Pokud chceme umožnit nastavovat styl pro konkrétní widget, měli bychom
+widget pojmenovat pomocí <TT>gtk_widget_set_name</TT>. Následně mu můžeme
+v&nbsp;resource souboru přiřadit styl takto:
+<PRE>
+widget "mywindow.*.GtkMenuItem" style "my-menu"
+</PRE>
+Jméno widgetu v&nbsp;resource souboru zadáváme ve formě posloupnosti jmen widgetů
+oddělených tečkou, která začíná v&nbsp;top-level okně a končí ve widgetu, jehož
+styl nastavujeme. Pokud nemá některý widget v&nbsp;posloupnosti nastavené jméno,
+používá se jméno jeho třídy (v&nbsp;našem příkladu je to případ
+<TT>GtkMenuItem</TT>). V&nbsp;cestě od top-level okna k&nbsp;widgetu můžeme použít
+wildcardy &bdquo;<TT>*</TT>&ldquo; (zastupuje libovolnou posloupnost znaků) a
+&bdquo;<TT>?</TT>&ldquo; (zastupuje jeden znak).
+
+<P>Místo nastavení konkrétního widgetu lze určit styl pro všechny widgety
+z&nbsp;nějaké třídy:
+<PRE>
+widget_class "GtkWindow.*.GtkMenuItem style "my-menu"
+</PRE>
+Opět se zadává posloupnost jmen začínající top-level oknem, ale tentokrát to
+jsou jména tříd. Poslední variantou je nastavení stylu pro úplně všechny
+widgety v&nbsp;aplikaci, které patří do určité třídy nebo do některé z&nbsp;ní odvozené
+třídy:
+<PRE>
+class "GtkMenuItem" style "my-menu"
+</PRE>
+
+<P>Položky ze všech načtených resource souborů, jež odpovídají určitému
+widgetu, se skládají dohromady tak, že nejvyšší prioritu mají položky
+<TT>widget</TT>, následuje <TT>widget_class</TT> a nejmenší prioritu má
+<TT>class</TT>. Mezi položkami stejného typu mají přednost ty, které byly
+načteny později.
+
+<H2>Komunikace mezi programy</H2>
+
+<P>Základním mechanismem komunikace mezi programy v&nbsp;GTK+ jsou <EM>výběry
+(selections)</EM>. Z&nbsp;pohledu uživatele funguje výběr velice jednoduše.
+Uživatel myší označí např. blok textu a kliknutím prostředním tlačítkem ho
+vloží do jiného widgetu. Výběry v&nbsp;GTK+ jsou implementovány pomocí funkcí pro
+výběry v&nbsp;Xlib. Použitím standardního mechanismu výběrů X je zajištěno, že
+aplikace GTK+ mohou komunikovat i s&nbsp;X-ovými programy používajícími jiné
+toolkity nebo jen samotnou knihovnu Xlib. Přenos dat probíhá prostřednictvím X
+serveru, komunikující aplikace mezi sebou nemusí mít přímé spojení. Některé
+widgety, jako <TT>GtkEntry</TT> nebo <TT>GtkTextView</TT>, umí pracovat
+s&nbsp;výběry aniž by se o&nbsp;to musel programátor starat.
+
+<P>Obr. 1 ukazuje fungování selections na straně zdroje i cíle přenosu dat.
+Pokud má být widget schopen poskytovat data pro výběr, musí každý typ
+(v&nbsp;terminologii X <EM>cíl &ndash; target</EM>), do něhož je schopen data
+konvertovat, registrovat funkcí <TT>gtk_selection_add_target</TT>. Tuto funkci
+je nutné volat pro každou dvojici výběr, cíl. Obvykle se používá primární
+výběr <TT>GDK_PRIMARY_SELECTION</TT>. Widgety umí automaticky poskytovat cíl
+<TT>"TARGETS"</TT>, což nejsou data, ale seznam všech cílů, které má widget
+registrované. Když uživatel označí vybraná data, widget si přivlastní výběr
+voláním <TT>gtk_selection_owner_set</TT>. Předchozí vlastník výběru dostane
+signál <TT>"selection_clear_event"</TT>. Obvykle na něj reaguje zrušením
+grafického zvýraznění vybraných dat. Vložení vybraných dat do cílového widgetu
+je aktivováno akcí uživatele. Proces přenosu dat zahájí funkce
+<TT>gtk_selection_convert</TT>. Zadává se požadovaný výběr a cíl (typ dat).
+Vlastník widgetu je o&nbsp;žádosti o&nbsp;data informován signálem
+<TT>"selection_get"</TT>. Zareaguje na něj uložením dat v&nbsp;požadovaném formátu
+pomocí funkce <TT>gtk_selection_data_set</TT>. Následně cílový widget dostane
+signál <TT>"selection_received"</TT>. Přijatá data dostane jako parametr 
+handleru tohoto signálu. Komunikace je tedy asynchronní. Cílový widget požádá
+o&nbsp;obsah výběru, ale nečeká na dokončení přenosu dat. Místo toho pokračuje
+normálně dál ve zpracování událostí a časem dostane data prostřednictvím
+signálu.
+
+<DIV align="center">
+<P><IMG alt="selections" src="selections.png">
+<P>Obr. 1: Komunikace pomocí výběru (selection)
+</DIV>
+
+<P>GTK+ poskytuje ještě alternativní metodu manipulace s&nbsp;výběry &ndash;
+clipboard. Příslušné funkce mají prefix <TT>gtk_clipboard_</TT>. Typy dat
+(cíle) a jména výběrů jsou řetězce, např. <TT>"TARGETS"</TT>,
+<TT>"STRING"</TT>, <TT>"INTEGER"</TT>. Aby se nepřenášely potenciálně dlouhé
+řetězce, používají se místo nich číselné identifikátory &ndash;
+<EM>atomy</EM>. Program, který chce používat atom, si jej nejprve zaregistruje
+voláním <TT>gdk_atom_intern</TT>. Jako parametr zadá jméno atomu &ndash;
+řetězec. Zpět dostane atom &ndash; číslo. Atomy jsou platné v&nbsp;rámci jednoho
+spuštění X serveru. Každé volání <TT>gdk_atom_intern</TT> se stejným jménem
+vrátí stejný atom. Pro různá jména dostaneme různé atomy.
+
+<P>Další způsob komunikace mezi programy je <EM>drag&amp;drop</EM>. Opět
+používá standardní mechanismy X a funguje i s&nbsp;programy, které nepoužívají
+toolkit GTK+. Schéma jeho fungování je na obr. 2.
+
+<DIV align="center">
+<P><IMG alt="drag drop" src="dragdrop.png">
+<P>Obr. 2: Drag &amp;drop
+</DIV>
+
+<P>Widget, který chce být potenciálním zdrojem nebo cílem operace
+drag&amp;drop, se musí registrovat pomocí funkcí <TT>gtk_drag_source_set</TT>,
+resp. <TT>gtk_drag_dest_set</TT>. Jestliže uživatel přetáhne myší ikonu
+reprezentující nějaká data z&nbsp;jednoho widgetu do jiného, dostane zdrojový
+widget signál <TT>"drag_data_get"</TT>. Zareaguje na něj uložením dat pomocí
+volání <TT>gtk_selection_data_set</TT>. Cílový widget dostane signál
+<TT>"drag_data_received"</TT>, který má jako jeden z&nbsp;parametrů doručená data.
+Jestliže operace drag&amp;drop byla typu &bdquo;move&ldquo; dostane zdroj
+signál <TT>"drag_data_delete"</TT> informující o&nbsp;tom, že data dorazila do cíle
+a na zdrojové straně mohou být smazána.
+
+</BODY>
+</HTML>

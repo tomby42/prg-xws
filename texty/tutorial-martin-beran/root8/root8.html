@@ -1,0 +1,297 @@
+<HTML>
+<HEAD>
+<META http-equiv="Content-Type" content="text/html; charset=ISO-8859-2">
+</HEAD>
+
+<BODY>
+<H1>Programování pro X Window System (8)</H1>
+
+<B>Martin Beran</B>
+<EM>&lt;<A href="mailto:beran@ms.mff.cuni.cz">beran@ms.mff.cuni.cz</A>&gt;</EM>
+
+<H2>Definice nové třídy widgetů</H2>
+
+<P>Vytvořit nový typ widgetu je v&nbsp;toolkitu Qt velice jednoduché. Jako základ
+vybereme třídu, která má vlastnosti co nejbližší tomu, čeho chceme dosáhnout.
+Jako příklad si ukážeme widget <TT>LCDRange</TT> z&nbsp;tutoriálu Qt (v&nbsp;dokumentaci
+Qt je to Tutorial #1, kap. 7). Program se skládá ze tří souborů: <A
+href="lcdrange.h">lcdrange.h</A> (definice třídy <TT>LCDRange</TT>), <A
+href="lcdrange.cpp">lcdrange.cpp</A> (implementace metod třídy
+<TT>LCDRange</TT>) a <A href="main.cpp">main.cpp</A> (hlavní program
+používající třídu <TT>LCDRange</TT>). Widget <TT>LCDRange</TT> se skládá ze
+zobrazení čísla ve stylu LCD displeje (<TT>QLCDNumber</TT>) a z&nbsp;šoupátka
+<TT>QSlider</TT>, kterým se nastavuje zobrazená hodnota, viz obr. 1.
+
+<DIV align="center">
+<P><IMG alt="LCDRange" src="lcdrange.png">
+<P>Obr. 1: Widget <TT>LCDRange</TT>
+</DIV>
+
+<P>Náš nový widget obsahuje své dvě komponenty pod sebou, proto bude odvozen
+z&nbsp;vertikálního boxu <TT>QVBox</TT> (funguje podobně jako <TT>GtkVBox</TT>). Na
+začátku souboru <TT>lcdrange.h</TT> musíme načíst příslušný hlavičkový soubor.
+Ve třídě <TT>LCDRange</TT> nebudeme potřebovat přímo objekt <TT>QSlider</TT>,
+ale pouze ukazatel na něj. Proto stačí pouze deklarovat jméno třídy. Tím, že
+se neincluduje hlavičkový soubor <TT>qslider.h</TT>, ušetříme čas při
+překladu.
+<PRE>
+#include &lt;qvbox.h&gt;
+class QSlider;
+</PRE>
+
+Aby Qt správně rozpoznalo náš widget jako nový typ, musíme na začátku těla
+třídy použít makro <TT>Q_OBJECT</TT>. Tím se deklarují pomocné metody pro
+typový systém Qt a zároveň se řekne, že tento zdrojový soubor se bude
+zpracovávat pomocí utility <TT>moc</TT>.
+<PRE>
+class LCDRange : public QVBox {
+    Q_OBJECT
+</PRE>
+
+Následně deklarujeme jednotlivé metody a datové položky třídy, včetně signálů
+a slotů. Sloty můžeme deklarovat jako <TT>public</TT>, <TT>protected</TT> nebo
+<TT>private</TT>, signály jsou vždy <TT>protected</TT>. Makro <TT>slots</TT>
+expanduje na prázdný řetězec, makro <TT>signals</TT> má hodnotu
+<TT>protected</TT>. Tato makra informují program <TT>moc</TT>, že má určité
+metody ošetřit speciálním způsobem, a zároveň zajistí, že při překladu
+dostaneme po průchodu preprocesorem korektní zdrojový text v&nbsp;C++.
+<PRE>
+public:
+    LCDRange(QWidget *parent = 0, const char *name = 0);
+    int value() const;
+public slots:
+    void setValue(int);
+signals:
+    void valueChanged(int);
+private:
+    QSlider *slider;
+};
+</PRE>
+
+<P>V souboru <TT>lcdrange.cpp</TT> definujeme jednotlivé metody. Konstruktor
+vytvoří dva synovské widgety &ndash; LCD číslo a slider. Spojením signálu
+<TT>valueChanged</TT> slideru se slotem <TT>display</TT> LCD čísla zajistíme
+změnu zobrazené hodnoty při posunu slideru. Druhé volání <TT>connect</TT>
+nastaví, že signál <TT>QSlider::valueChanged</TT> způsobí vygenerování signálu
+<TT>LCDRange::valueChanged</TT>. Uživatel našeho widgetu <TT>LCDRange</TT> 
+má možnost dozvědět se prostřednictvím tohoto signálu o&nbsp;změně hodnoty. Nemusí
+přitom vůbec vědět, že widget má ve skutečnosti dva synovské widgety a signál
+pochází od jednoho z&nbsp;nich.
+<PRE>
+#include "lcdrange.h"
+#include &lt;qslider.h&gt;
+#include &lt;qlcdnumber.h&gt;
+
+LCDRange::LCDRange(QWidget *parent, const char *name) : QVBox(parent, name)
+{
+    QLCDNumber *lcd = new QLCDNumber(2, this, "lcd");
+    slider = new QSlider(Horizontal, this, "slider");
+    slider-&gt;setRange(0, 99);
+    slider-&gt;setValue(0);
+    connect(slider, SIGNAL(valueChanged(int)), lcd, SLOT(display(int)));
+    connect(slider, SIGNAL(valueChanged(int)), SIGNAL(valueChanged(int)));
+}
+</PRE>
+Dál už zbývá pouze implementovat metodu <TT>value</TT> a slot
+<TT>setValue</TT>. Tělo signálu <TT>valueChanged</TT> nedefinujeme. O&nbsp;správnou
+definici, která bude volat připojené handlery, se postará program
+<TT>moc</TT>.
+<PRE>
+int LCDRange::value() const
+{
+    return slider-&gt;value();
+}
+
+void LCDRange::setValue(int value)
+{
+    slider-&gt;setValue(value);
+}
+</PRE>
+
+<P>Každý hlavičkový soubor, jenž obsahuje definici třídy odvozené
+z&nbsp;<TT>QObject</TT>, je nutné zpracovat pomocí nástroje </EM>Meta Object
+Compiler</EM> (<TT>moc</TT>). Aby <TT>moc</TT> třídu zpracoval, musí v&nbsp;ní být
+použito makro <TT>Q_OBJECT</TT>. Dále může obsahovat deklarace signálů, slotů
+a properties (hodnot přístupných pomocí řetězcového klíče). Meta Object
+Compiler vygeneruje pro každou třídu <TT>XYZ</TT> soubor
+<TT>moc_<EM>XYZ</EM>.cpp</TT>. V&nbsp;něm jsou definice metod implementujících
+signály a také definice <EM>meta-objektu</EM>. Každá třída má svůj meta-objekt
+typu <TT>QMetaObject</TT>, přístupný prostřednictvím virtuální metody
+<TT>QObject::metaObject</TT>. Meta-objekt popisuje vlastnosti třídy: jméno
+třídy, jméno a odkaz na meta-objekt bázové třídy, dále seznamy jmen a typů
+slotů, signálů a properties. Informace z&nbsp;meta-objektu používá např. Qt
+Designer nebo skriptovací engine QSA.
+
+<H2>Postup při překladu programu</H2>
+
+<P>Obr. 2 ukazuje, jak probíhá překlad programu, od zdrojových textů až
+k&nbsp;výslednému spustitelnému souboru. Příklad vychází ze stejného ukázkového
+programu, na jakém jsme si ukázali definici nové třídy v&nbsp;první části článku.
+
+<DIV align="center">
+<P><IMG alt="překlad programu" src="make.png">
+<P>Obr. 2: Postup překladu programu
+</DIV>
+
+<P>Na začátku máme v&nbsp;adresáři pouze soubory se zdrojovými texty
+(<TT>main.cc</TT>, <TT>lcdrange.h</TT>, <TT>lcdrange.cc</TT>). Příkaz
+<PRE>
+qmake -project
+</PRE>
+pro ně vytvoří projektový soubor a další spuštění <TT>qmake</TT> vygeneruje
+<TT>Makefile</TT> obsahující pravidla pro volání kompilátoru, linkeru a Meta
+Object Compileru. Příkaz <TT>make</TT> nejprve z&nbsp;hlavičkového souboru
+<TT>lcdrange.h</TT> vytvoří <TT>moc_lcdrange.cpp</TT> pomocí utility
+<TT>moc</TT>. Pak už se spustí kompilátor a linker.
+
+<P>Alternativně můžeme použít nástroj Qt Designer pro grafický návrh aplikace.
+Designer vytváří pro každý formulář (tj. top-level okno) popis vzhledu okna
+obsahující rozložení a vlastnosti widgetů. Definici formuláře ukládá do
+souboru <TT><EM>OKNO</EM>.ui</TT> ve formátu XML. Přímo v&nbsp;designeru lze
+definovat i chování widgetů tím, že Qt Designer definuje pro každé okno
+samostatnou třídu a programátor doplní těla jednotlivých slotů. Designer pak
+definice slotů exportuje do souboru <TT><EM>OKNO</EM>.ui.h</TT>. Vygenerovat
+se dá i standardní soubor <TT>main.cc</TT> s&nbsp;funkcí <TT>main</TT>, která
+zobrazí hlavní okno a spustí zpracování událostí. Qt Designer vygeneruje také
+projektový soubor pro <TT>qmake</TT>, v&nbsp;němž je řečeno, že
+v&nbsp;<TT>Makefile</TT> má být volání utility <TT>uic</TT> (User Interface
+Compiler). Ta z&nbsp;XML souboru <TT><EM>OKNO</EM>.ui</TT> vytvoří soubory
+<TT><EM>OKNO</EM>.h</TT> a <TT><EM>OKNO</EM>.cpp</TT>. Další postup je stejný
+jako bez použití designeru. Na obr. 3 je příklad založený na ukázkovém
+programu z&nbsp;tutoriálu pro Qt Designer.
+
+<DIV align="center">
+<P><IMG alt="Qt Designer" src="designer.png">
+<P>Obr. 3: Překlad aplikace vytvořené v&nbsp;Qt Designeru
+</DIV>
+
+<H2>Automatické umísťování widgetů</H2>
+
+<P>Podobně jako v&nbsp;GTK+, i v&nbsp;Qt se pozice a velikosti widgetů nastavují
+automaticky. Každý widget má doporučenou velikost, kterou vrací metoda
+<TT>QWidget::sizeHint</TT>. Navíc má ještě metodu
+<TT>QWidget::minimumSizeHint</TT> určující minimální velikost widgetu. Metoda
+<TT>QWidget::sizePolicy</TT> definuje, zda má widget vždy velikost
+<TT>sizeHint</TT>, nebo se může zvětšovat či zmenšovat. Přidělování velikosti
+probíhá podobně jako v&nbsp;GTK+. Nejprve se průchodem stromu widgetů zjistí
+požadavky jednotlivých widgetů na velikost. U&nbsp;widgetu, jenž má potomky, závisí
+jeho velikost na jeho vlastních potřebách a na požadavcích potomků. Následně
+dostane top-level okno ve spolupráci s&nbsp;window managerem přidělené místo, které
+se pak rozděluje mezi potomky ve stromě widgetů.
+
+<P>Nejjednodušší způsob, jak do rodičovského widgetu rozmístit synovské
+widgety, je použití některého <EM>layout widgetu</EM>. Vybírat lze ze tří
+typů: <TT>QHBox</TT> (synovské widgety seřazené v&nbsp;řádku zleva doprava),
+<TT>QVBox</TT> (synovské widgety seřazené ve sloupci shora dolů) a
+<TT>QGrid</TT> (synovské widgety ve dvojrozměrné mřížce). Layout widgety
+fungují podobně jako v&nbsp;GTK+ kontejnery <TT>GtkHBox</TT>, <TT>GtkVBox</TT> a
+<TT>GtkTable</TT>. V&nbsp;konstruktoru <TT>QGrid</TT> se zadává počet sloupců.
+Jednotlivé synovské widgety se vkládají vedle sebe, po zaplnění nastaveného
+počtu sloupců se pokračuje v&nbsp;dalším řádku. Všechny tři typy layout widgetů
+jsou odvozené z&nbsp;<TT>QFrame</TT>, takže umí kolem vložených widgetů kreslit
+rámeček. Když potřebujeme nadefinovat složitější rozložení widgetů, dají se
+layout widgety vnořovat. Na obr. 4 jsou všechny tři typy layout widgetů.
+Příslušný zdrojový kód je <A href="layout_widgets.cpp">layout_widgets.cpp</A>.
+
+<DIV align="center">
+<P><IMG alt="layout widgety" src="layout_widgets.png">
+<P>Obr. 4: Layout widgety <TT>QHBox</TT>, <TT>QVBox</TT> a <TT>QGrid</TT>
+</DIV>
+
+<P>Pokud potřebujeme větší kontrolu nad rozmístěním widgetů, můžeme použít
+některý z&nbsp;potomků z&nbsp;třídy <TT>QLayout</TT>. K&nbsp;dispozici jsou
+<TT>QBoxLayout</TT>, <TT>QHBoxLayout</TT>, <TT>QVBoxLayout</TT> a
+<TT>QGridLayout</TT>. Tyto layouty však nejsou widgety. Jsou to objekty, které
+se vloží do widgetu a řídí rozmístění jeho synovských widgetů. V&nbsp;rámci jednoho
+widgetu je možné layouty vnořovat. Pokud chceme do layoutu vložit widget, je
+třeba ho vytvořit tak, že za rodiče bude mít widget, který je vlastníkem
+layoutu. Následně widget vložíme do layoutu metodou <TT>add</TT> nebo
+<TT>addWidget</TT>.
+
+<PRE>
+QHBoxLayout *box = new QHBoxLayout(parent);
+box-&gt;addWidget(new QLabel("1", parent));
+box-&gt;addWidget(new QLabel("2", parent));
+</PRE>
+
+Alternativně můžeme nastavit voláním <TT>QLayout::setAutoAdd</TT>, že všichni
+noví synové widgetu budou automaticky vloženi do layoutu. Tato metoda však
+funguje pouze pro top-level layout, tj. layout, jehož rodičem je widget a
+nikoliv jiný layout.
+
+<PRE>
+QHBoxLayout *box = new QHBoxLayout(widget);
+box-&gt;setAutoAdd(TRUE);
+new QLabel("1", widget);
+new QLabel("2", widget);
+</PRE>
+
+Stejného vzhledu jako na obr. 4 lze s&nbsp;použitím vnořených layoutů místo layout
+widgetů dosáhnout programem <A href="layouts.cpp">layouts.cpp</A>.
+
+<H2>Kreslení</H2>
+
+<P>Widget dostane událost <TT>QPaintEvent</TT>, jestliže je potřeba ho celý
+nebo část překreslit. Vlastní kreslení provádí handler
+<TT>QWidget::paintEvent</TT>. Metoda <TT>QPaintEvent::region</TT> slouží ke
+zjištění oblasti, která se má kreslit. Zevnitř programu lze kreslení iniciovat
+voláním <TT>QWidget::repaint</TT> nebo <TT>QWidget::update</TT>. Rozdíl mezi
+nimi je v&nbsp;tom, že <TT>repaint</TT> provede překreslení okamžitě přímým
+zavoláním <TT>paintEvent</TT>, kdežto <TT>update</TT> pouze vygeneruje událost
+<TT>QPaintEvent</TT> a vloží ji do fronty. Kreslení 2D grafiky se provádí
+pomocí třídy <TT>QPainter</TT>. Pro 3D grafiku je možné použít knihovnu
+OpenGL, přístupnou prostřednictvím widgetu <TT>QGLWidget</TT>.
+
+<P>Třída <TT>QPainter</TT> kreslí do <TT>QPaintDevice</TT>, resp. do některého
+potomka této třídy. Nejčastěji používaný je widget (<TT>QWidget</TT>). Další
+možnosti jsou: pixmapa (<TT>QPixmap</TT>, rastrový obrázek), tiskárna
+(<TT>QPrinter</TT>) a záznamník kreslících příkazů (<TT>QPicture</TT>). Objekt
+třídy <TT>QPicture</TT> si dokáže zapamatovat posloupnost kreslicích operací
+a následně tyto operace zopakovat na nějakém objektu <TT>QPainter</TT>.
+Případně lze celou posloupnost uložit do souboru v&nbsp;proprietárním formátu nebo
+ve formátu SVG. 
+
+<P>Ve třídě <TT>QPainter</TT> jsou definovány funkce pro kreslení
+geometrických tvarů (čar, polygonů, kruhů, oblouků a Beziérových křivek),
+psaní textu a kreslení obrázků (kopírování dat z&nbsp;<TT>QPixmap</TT>,
+<TT>QImage</TT> nebo <TT>QPicture</TT>). Souřadnice se implicitně měří
+z&nbsp;levého horního rohu v&nbsp;pixelech doprava a dolů, ale soustavu souřadnic lze
+transformovat pomocí operací posunu, rotace, změny měřítka a zkosení.
+Je také možné přímo nastavit transformační matici ve tvaru <IMG
+src="matrix.png" alt="[m11 m12 0; m21 m22 0; dx dy 1]" align="center">. Matice
+transformuje každý zadaný bod (x, y) na
+(m<SUB>11</SUB>x+m<SUB>21</SUB>y+d<SUB>x</SUB>, 
+m<SUB>12</SUB>x+m<SUB>22</SUB>y+d<SUB>y</SUB>). Každý objekt, který se má
+nakreslit, je nejdřív transformován do souřadnic modelu pomocí transformační
+matice, následně se provede oříznutí do obdélníku <TT>QPainter::window</TT> a
+výsledek se umístí na <TT>QPaintDevice</TT> tak, že <TT>window</TT>
+(v&nbsp;souřadnicích modelu) se ztotožní s&nbsp;obdélníkem <TT>QPainter::viewport</TT>
+(v&nbsp;souřadnicích zařízení). <TT>QPainter</TT> obsahuje také parametry kreslení,
+jako je barva a tloušťka čar, barva a vzorek pro vyplňování, nebo font.
+
+<P>Typická metoda <TT>paintEvent</TT> vypadá tak, že na začátku se vytvoří
+painter, nastaví se parametry, provedou se kreslicí operace a na konci se
+painter automaticky zruší. Následující příklad, opět převzatý z&nbsp;tutoriálu Qt,
+nakreslí to, co je ve žlutém obdélníku na obr. 5.
+
+<PRE>
+void CannonField::paintEvent(QPaintEvent *)
+{
+    QPainter p(this);
+
+    p.setBrush(blue);
+    p.setPen(NoPen);
+
+    p.translate(0, rect().bottom());
+    p.drawPie(QRect(-35, -35, 70, 70), 0, 90 * 16);
+    p.rotate(-ang);
+    p.drawRect(QRect(33, -4, 15, 8));
+}
+
+<DIV align="center">
+<P><IMG alt="příklad kreslení" src="drawing.png">
+<P>Obr. 5: Příklad kreslení
+</DIV>
+
+</BODY>
+</HTML>

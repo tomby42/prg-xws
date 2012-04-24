@@ -1,0 +1,2 @@
+V tomto èlánku uzavøeme téma GTK+. Podíváme se dovnitø toolkitu, jak fungují
+widgety. Na závìr si uká¾eme, jak definovat novou tøídu widgetù.
