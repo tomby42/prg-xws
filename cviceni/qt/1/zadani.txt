@@ -1,0 +1,5 @@
+Vytvorte Qt aplikaci ktera vzhledove bude podobna apliakci na obr.png. Buton "quit" ukonci aplikaci. V bilem
+widgetu (ten byste meli vytvorit) by se mel na zacatku vytvorit puntik na nahodnem miste a v 
+nahodnem smeru letet k okraji kde se odrazi pod uhlem dopadu. Puntik by mel mit prumer 10 pixelu a 
+jeho barva by se mela nahodne menit. Rychlost puntiku by se mela na zacatku nahodne vybrat z intervalu 
+1-5 pixelu za frame. Pri repaintu widgetu nemazte stare zobrazeni puntiku at zanechava stopu (jako na obr).

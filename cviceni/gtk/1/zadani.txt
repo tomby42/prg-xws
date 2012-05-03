@@ -1,0 +1,2 @@
+Upravte aplikaci tak aby se pri zmacknuti butonu "Nazdar svete" aplikace ukoncila 
+a pri zavreni aplikace pomoci ikonky ("x") vypsalo na stout "nekdo me chce zavrit!" ale aplikace se neukonci.

@@ -1,0 +1,3 @@
+1. Doplnte tridu LCDRange tak aby mela slot setValue a signal valueChanged
+2. Upravte program tak aby kazdy slider ovlivnoval vsechny predesle slidery 
+   tak aby se updatovali kdyz se s nim hne a byli nastaveny na stejnou hodnotu.

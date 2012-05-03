@@ -1,0 +1,1 @@
+Vytvorte makefile pro prelozeni vsechn prikladu v adresari examples/gtk.

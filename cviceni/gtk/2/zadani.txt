@@ -1,0 +1,6 @@
+Vytvorte GTK aplikaci ktera bude simulovat chovani radio butonu pomoci check butonu. 
+Tj. pod sebou bude n check butonu, ale pouze jeden z nich muze byt vybran (zaskrtnut).
+Vstup programu bude cislo kolik check butonu ma byt pod sebou. V okne se pak pod sebou objevi
+check butony s nazvy 1. - n. Na zacatku je aktivni buton s nazvem 1. Pri kliknuti na check buton
+se buton aktivuje a vypise na stdout "Button no. %s is activated\n". Pri kliknuti na "x" 
+(ikona zavreni okna) se aplikace ukonci.

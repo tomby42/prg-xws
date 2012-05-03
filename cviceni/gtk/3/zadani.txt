@@ -1,0 +1,15 @@
+ Vytvorte jednoduchou GTK+ aplkaci, kde pomoci boxu vytvorte 
+ rozestaveni butonku jako na obr. 1 (nazvy tez jako na obr) 
+ 
+ +----+-----+
+ |  1 |     |
+ +----+  3  |
+ |  2 |     |
+ +----------+
+    obr 1.
+ 
+ Po zmacknuti butonku 1 se vypise na stdout "1"
+ Po zmacknuti butonku 2 se vypise na stdout "2"
+ Po zmacknuti butonku 3 se vypise na stdout "3"
+ Nazev top level okna bude "123"
+ Pri uzavreni aplikace se aplikace ukonci a vypise "321"

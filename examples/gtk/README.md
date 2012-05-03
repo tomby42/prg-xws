@@ -1,0 +1,1 @@
+Vetsina prikladu je prevzata z gtk prikladu pod licenci GPL.

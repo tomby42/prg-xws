@@ -1,0 +1,5 @@
+Upravte program tak aby
+a) po zmacknuti tlacitka "Quit" program skoncil
+b) pri hybani sliderem dole se updatovala hodnota v lcd displaji nahore
+c) pri zmacknuti prislusneho cudliku "BINARY", "OCTADECIMAL", "DECIMAL", "HEXADECIMAL" 
+   se hodnota v lcd displaji vypisovala v prislusne ciselne soustave
